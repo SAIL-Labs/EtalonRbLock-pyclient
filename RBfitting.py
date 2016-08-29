@@ -93,6 +93,15 @@ def fitEtalon(x, data, centrestart):
     return best_parameters[2]
 
 
+def getRbWindow(rbdata,left=0):
+    if left:
+        start = np.argmin(rbdata) - 19000
+    else:
+        start = np.argmin(rbdata) - 8000
+    finish = start + 15000
+
+    return start, finish
+
 def fitRblines(x, datab, start, finish):
     global pRbstart
     datab = savgol_filter(datab, 11, 3)
@@ -180,7 +189,7 @@ if __name__ == '__main__':
         #start = np.argmin(ur.dataB[0:230000])- 19000
         
         start = np.argmin(ur.dataB[0:230000])- 8000
-        print(start)
+        #print(start)
         finish = start + 15000
         newRBcentre = fitRblines(x[start:finish:1], ur.dataB[start:finish:1] * -1, start, finish)
         rbcentres.append(newRBcentre)
