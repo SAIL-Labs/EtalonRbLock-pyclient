@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1619</width>
-    <height>992</height>
+    <width>1513</width>
+    <height>1292</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -37,17 +37,20 @@
         <string>Full Moniter</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout">
+        <item row="0" column="0">
+         <widget class="PlotWidget" name="pw_etalondata"/>
+        </item>
         <item row="1" column="0" colspan="2">
-         <widget class="GraphicsLayoutWidget" name="pw_rawtimeseries"/>
+         <widget class="GraphicsLayoutWidget" name="glw_rawtimeseries"/>
         </item>
         <item row="2" column="0" colspan="2">
          <widget class="PlotWidget" name="pw_velocitytimeseries"/>
         </item>
-        <item row="0" column="0">
-         <widget class="PlotWidget" name="pw_etalondata"/>
-        </item>
         <item row="0" column="1">
          <widget class="PlotWidget" name="pw_rbdata"/>
+        </item>
+        <item row="3" column="0" colspan="2">
+         <widget class="PlotWidget" name="pw_temp"/>
         </item>
        </layout>
       </widget>
@@ -105,7 +108,7 @@
         <string>Live</string>
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout">
-        <item alignment="Qt::AlignTop">
+        <item>
          <widget class="QGroupBox" name="groupBox">
           <property name="maximumSize">
            <size>
@@ -117,16 +120,10 @@
            <string>Data Aquisition</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_3">
-           <item row="0" column="0">
-            <widget class="QPushButton" name="startbutton">
+           <item row="1" column="0">
+            <widget class="QPushButton" name="pushButton_savedata">
              <property name="text">
-              <string>Start</string>
-             </property>
-             <property name="default">
-              <bool>false</bool>
-             </property>
-             <property name="flat">
-              <bool>false</bool>
+              <string>Save Date</string>
              </property>
             </widget>
            </item>
@@ -140,10 +137,98 @@
              </property>
             </widget>
            </item>
-           <item row="1" column="0" colspan="2">
-            <widget class="QPushButton" name="pushButton_savedata">
+           <item row="0" column="0">
+            <widget class="QPushButton" name="startbutton">
              <property name="text">
-              <string>Save Date</string>
+              <string>Start</string>
+             </property>
+             <property name="default">
+              <bool>false</bool>
+             </property>
+             <property name="flat">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QCheckBox" name="checkBox_fitting">
+             <property name="text">
+              <string>Fitting Enabled</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="1">
+            <widget class="QSpinBox" name="spinBox_smoothingWindow">
+             <property name="minimum">
+              <number>5</number>
+             </property>
+             <property name="maximum">
+              <number>2001</number>
+             </property>
+             <property name="singleStep">
+              <number>2</number>
+             </property>
+             <property name="value">
+              <number>51</number>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QCheckBox" name="checkBox_etalonsmoothing">
+             <property name="text">
+              <string>Smooth Etalon</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="0">
+            <widget class="QLabel" name="label_5">
+             <property name="text">
+              <string>Rb Smooth Window</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QPushButton" name="pushButton_clearData">
+             <property name="text">
+              <string>Clear Data</string>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="0">
+            <widget class="QLabel" name="label_6">
+             <property name="text">
+              <string>Etalon Bin Size</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="1">
+            <widget class="QDoubleSpinBox" name="doubleSpinBox_etalonbinsize">
+             <property name="readOnly">
+              <bool>false</bool>
+             </property>
+             <property name="prefix">
+              <string/>
+             </property>
+             <property name="suffix">
+              <string> sec</string>
+             </property>
+             <property name="minimum">
+              <double>0.100000000000000</double>
+             </property>
+             <property name="maximum">
+              <double>1000.000000000000000</double>
+             </property>
+             <property name="value">
+              <double>1.000000000000000</double>
              </property>
             </widget>
            </item>
@@ -156,6 +241,19 @@
            <string>Measurements</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_4">
+           <item row="0" column="4">
+            <spacer name="horizontalSpacer">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
            <item row="0" column="1">
             <widget class="QLCDNumber" name="lcdNumber_dateRate">
              <property name="maximumSize">
@@ -217,19 +315,6 @@
              </property>
             </widget>
            </item>
-           <item row="0" column="4">
-            <spacer name="horizontalSpacer">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
            <item row="2" column="0">
             <widget class="QLabel" name="label_3">
              <property name="maximumSize">
@@ -282,6 +367,16 @@
              </property>
             </widget>
            </item>
+           <item row="2" column="3">
+            <widget class="QLCDNumber" name="lcdNumber_etalonStd">
+             <property name="frameShape">
+              <enum>QFrame::NoFrame</enum>
+             </property>
+             <property name="segmentStyle">
+              <enum>QLCDNumber::Flat</enum>
+             </property>
+            </widget>
+           </item>
            <item row="0" column="3">
             <widget class="QLCDNumber" name="lcdNumber_triggerCount">
              <property name="frameShape">
@@ -307,16 +402,6 @@
              </property>
             </widget>
            </item>
-           <item row="2" column="3">
-            <widget class="QLCDNumber" name="lcdNumber_etalonStd">
-             <property name="frameShape">
-              <enum>QFrame::NoFrame</enum>
-             </property>
-             <property name="segmentStyle">
-              <enum>QLCDNumber::Flat</enum>
-             </property>
-            </widget>
-           </item>
           </layout>
          </widget>
         </item>
@@ -335,6 +420,9 @@
           <layout class="QGridLayout" name="gridLayout_5">
            <item row="0" column="0">
             <widget class="QPushButton" name="pushButton_resetUDP">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
              <property name="text">
               <string>Reset UdpReciever</string>
              </property>
@@ -354,7 +442,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1619</width>
+     <width>1513</width>
      <height>22</height>
     </rect>
    </property>

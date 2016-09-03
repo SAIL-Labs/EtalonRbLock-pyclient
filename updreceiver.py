@@ -31,9 +31,9 @@ class updreceiver(metaclass=Singleton):
         self.AQUSITIONSIZE = AQUSITIONSIZE
         self.RED_UDP_IP = RED_UDP_IP
 
-        self.sockA = self.setupSocket(self.UDP_PORT_A, 4*self.AQUSITIONSIZE)
-        self.sockB = self.setupSocket(self.UDP_PORT_B, 4*self.AQUSITIONSIZE)
-        self.sockAck = self.setupSocket(self.UDP_PORT_ACK, 1024*2)
+        self.sockA = self.setupSocket(self.UDP_PORT_A, 3*self.AQUSITIONSIZE)
+        self.sockB = self.setupSocket(self.UDP_PORT_B, 3*self.AQUSITIONSIZE)
+        self.sockAck = self.setupSocket(self.UDP_PORT_ACK, 1024)
 
         self.dataA = np.empty((self.AQUSITIONSIZE), dtype='i2')
         self.dataB = np.empty((self.AQUSITIONSIZE), dtype='i2')
@@ -48,6 +48,7 @@ class updreceiver(metaclass=Singleton):
             nrecv = source.recv_into(view)
             view = view[nrecv:]
             bytesrecv+=nrecv
+
         return bytesrecv
 
     def setupSocket(self,PORT,RCVBUFSIZE):
@@ -55,8 +56,7 @@ class updreceiver(metaclass=Singleton):
             s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, RCVBUFSIZE)
             s.bind(("", PORT))
-            s.settimeout(10.0)
-
+            s.settimeout(None)
         except socket.error:
             print('Failed to create socket')
             raise ValueError('Failed to create socket:' + str(PORT))
@@ -91,13 +91,10 @@ class updreceiver(metaclass=Singleton):
         
         return (ttemp, ttrig)
 
-    def doALL(self):
-        self.sendAckResponse(8.0)
+    def doALL(self,tempset=7.00):
+        self.sendAckResponse(tempset)
         self.receiveDACData()
         self.recieveTrigerTimeAndTemp()
-        # self.sockA.flush()
-        # self.sockB.flush()
-        # self.sockAck.flush()
 
 if __name__ == "__main__":
     print("Nothing to do. Use in external script.")
