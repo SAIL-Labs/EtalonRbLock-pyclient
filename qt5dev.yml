@@ -1,0 +1,62 @@
+name: qt5dev
+channels:
+- defaults
+- conda-forge
+dependencies:
+- appnope=0.1.0=py35_0
+- astropy=1.2.1=np111py35_0
+- conda-forge::freetype=2.6.3
+- conda-forge::matplotlib=1.5.2=np111py35_5
+- conda-forge::pyinstaller=3.2=py35_2
+- cycler=0.10.0=py35_0
+- decorator=4.0.10=py35_0
+- ipython=5.1.0=py35_0
+- ipython_genutils=0.1.0=py35_0
+- libpng=1.6.22=0
+- llvmlite=0.13.0=py35_0
+- mkl=11.3.3=0
+- nmearl::pyqtgraph=0.9.11=py35_0
+- numba=0.28.1=np111py35_0
+- numpy=1.11.1=py35_0
+- openssl=1.0.2h=2
+- path.py=8.2.1=py35_0
+- pexpect=4.0.1=py35_0
+- pickleshare=0.7.3=py35_0
+- pip=8.1.2=py35_0
+- prompt_toolkit=1.0.3=py35_0
+- ptyprocess=0.5.1=py35_0
+- pycrypto=2.6.1=py35_4
+- pygments=2.1.3=py35_0
+- pyopengl=3.1.1a1=np111py35_0
+- pyparsing=2.1.4=py35_0
+- python=3.5.2=0
+- python-dateutil=2.5.3=py35_0
+- python.app=1.2=py35_4
+- pytz=2016.6.1=py35_0
+- readline=6.2=2
+- scipy=0.18.0=np111py35_0
+- setuptools=26.1.1=py35_0
+- simplegeneric=0.8.1=py35_1
+- sip=4.18=py35_0
+- six=1.10.0=py35_0
+- snakeviz=0.4.1=py35_0
+- spyder-ide::icu=56.1=0
+- spyder-ide::qt5=5.6.0=0
+- sqlite=3.13.0=0
+- tk=8.5.18=0
+- tornado=4.4.1=py35_0
+- traitlets=4.2.2=py35_0
+- wcwidth=0.1.7=py35_0
+- wheel=0.29.0=py35_0
+- xz=5.2.2=0
+- zlib=1.2.8=3
+- pip:
+  - backports.shutil-get-terminal-size==1.0.0
+  - ipython-genutils==0.1.0
+  - matplotlib==1.5.2
+  - prompt-toolkit==1.0.3
+  - pyinstaller==3.2
+  - pyqt5==5.7
+  - pyqtgraph-pyqtgraph-0.9.10-231==g670d63c
+prefix: /Users/chrisbetters/anaconda/envs/qt5dev
+

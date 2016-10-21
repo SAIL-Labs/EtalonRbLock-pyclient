@@ -3,8 +3,6 @@ import socket   #for sockets
 #from array import array
 import numpy as np
 
-
-
 #from matplotlib import pyplot as plt
 
 # RED_UDP_IP ="10.66.101.121"
@@ -91,7 +89,7 @@ class updreceiver(metaclass=Singleton):
         
         return (ttemp, ttrig)
 
-    def doALL(self,tempset=7.00):
+    def doALL(self,tempset=8.00):
         self.sendAckResponse(tempset)
         self.receiveDACData()
         self.recieveTrigerTimeAndTemp()

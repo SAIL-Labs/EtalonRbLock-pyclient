@@ -2,10 +2,11 @@
 
 block_cipher = None
 
+binfolder='~/anaconda/envs/qt5dev/lib/.dylib'
 
 a = Analysis(['RbMoniter.py'],
              pathex=['/Users/chrisbetters/Dropbox/github/postdoc_code/UDPreceiverRedpitaya/python'],
-             binaries=None,
+             binaries=[(binfolder+'libmkl_avx2','.')],
              datas=None,
              hiddenimports=[],
              hookspath=[],
@@ -23,7 +24,7 @@ exe = EXE(pyz,
           debug=False,
           strip=False,
           upx=True,
-          console=False )
+          console=True )
 coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,
@@ -31,7 +32,3 @@ coll = COLLECT(exe,
                strip=False,
                upx=True,
                name='RbMoniter')
-app = BUNDLE(coll,
-             name='RbMoniter.app',
-             icon=None,
-             bundle_identifier=None)

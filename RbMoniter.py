@@ -9,6 +9,7 @@ Created on Fri Aug 19 14:11:52 2016
 import socket
 import subprocess
 import sys
+import os
 import time
 
 import numpy as np
@@ -16,6 +17,7 @@ import scipy.io
 from PyQt5 import QtCore, QtWidgets
 from PyQt5 import uic
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
+import pyqtgraph
 from scipy.signal import savgol_filter
 from scipy.stats import binned_statistic
 
@@ -23,11 +25,26 @@ import RBfitting as fr
 import updreceiver
 from PID import PID
 from remoteexecutor import remoteexecutor
+from FibreSwitchControl import FibreSwitchs
+
+if getattr(sys, 'frozen', False):
+        # we are running in a bundle
+        bundle_dir = sys._MEIPASS
+else:
+        # we are running in a normal Python environment
+        bundle_dir = os.path.dirname(os.path.abspath(__file__))
 
 aquisitionsize = 150000
+#rpIP='10.66.101.121'
+#rpIP='10.42.0.249'
+#localIP='10.42.0.1'
+#rpIP='192.168.2.7'
+#localIP='192.168.2.6'
+rpIP='192.168.1.100'
+localIP='192.168.1.1'
+
 
 x = np.arange(aquisitionsize)
-
 
 class getDataRecevierWorker(QtCore.QObject):
     finished = pyqtSignal()
@@ -37,7 +54,7 @@ class getDataRecevierWorker(QtCore.QObject):
     running = True
     PIDready = False
     curErr = 0
-    curtemp = 7
+    curtemp = 10
 
     def __init__(self, ur):
         QtCore.QObject.__init__(self)
@@ -45,6 +62,8 @@ class getDataRecevierWorker(QtCore.QObject):
 
     @pyqtSlot()
     def dataRecvLoop(self):
+        print("dataRecvLoop start\n")
+        self.running = True
         while self.running:
             try:
                 if self.PIDready:
@@ -63,9 +82,10 @@ class getDataRecevierWorker(QtCore.QObject):
                     self.PIDready = True
 
             except socket.timeout:
-                print("sock timeout error")
+                print("sock timeout error\n")
                 self.errorOccured.emit()
                 break
+
         print("getDataRecevierWorker while loop ended")
         self.finished.emit()
 
@@ -90,22 +110,27 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
 
-        uic.loadUi('RbMoniter.ui', self)
+        uic.loadUi(os.path.join(bundle_dir, 'RbMoniter.ui'), self)
 
-        self.ur = updreceiver.updreceiver(12345, 12346, 12347, aquisitionsize, "10.66.101.121")
+        self.ur = updreceiver.updreceiver(12345, 12346, 12347, aquisitionsize, rpIP)
         if sys.platform == 'win32':
-            sshcmd = "C:\Program Files (x86)\PuTTY\plink.exe -pw notroot -ssh"
-        else:
-            sshcmd = "ssh"
+            sshcmd = "C:\Program Files (x86)\PuTTY\plink.exe -pw notroot -ssh "
+            subprocess.run(sshcmd + "root@" + rpIP + " killall UDPStreamer")
 
-        subprocess.run(["ssh", "root@10.66.101.121", "killall UDPStreamer"])
-        self.exec = remoteexecutor([sshcmd, "-t", "-t", "root@10.66.101.121", "~/RpRbDAQ/UDPStreamer"])
+            self.exec = remoteexecutor(sshcmd + "-t " + "-t " + "root@" + rpIP  + " ~/RpRbDAQ/UDPStreamer -i " + localIP)
+        else:
+            subprocess.run(["ssh", "root@" + rpIP, "killall UDPStreamer"])
+            sshcmd=["ssh", "-t", "-t", "root@" + rpIP, "~/RpRbDAQ/UDPStreamer","-i",localIP, "-a",str(aquisitionsize)]
+            print(" ".join(sshcmd))
+            self.exec = remoteexecutor(["ssh", "-t", "-t", "root@" + rpIP, "~/RpRbDAQ/UDPStreamer","-i",localIP])
 
         self.startbutton.clicked.connect(self.startUdpRecevierThread)
         self.stopbutton.clicked.connect(self.stopUdpRecevierThread)
         self.pushButton_savedata.clicked.connect(self.saveTimeSeries)
         # self.pushButton_resetUDP.clicked.connect(self.restartRP)
         self.pushButton_clearData.clicked.connect(self.clearData)
+        self.radioButton_RbMointer.toggled.connect(self.toggleSwitch)
+        #self.radioButton_Spec.clicked.connect(self.toggleSwitch)
 
         self.plot_etalondata = self.pw_etalondata.plot()
         self.plot_rbdata = self.pw_rbdata.plot()
@@ -121,6 +146,12 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
         self.plot_rawtimeseries2.setDownsampling(method='peak', auto=True)
         self.plot_velocitytimeseries.setDownsampling(method='peak', auto=True)
         self.plot_temp.setDownsampling(method='peak', auto=True)
+
+        self.fs=FibreSwitchs(port='/dev/tty.usbmodem142121')
+        self.fs.setStateTwo()
+
+        #self.showMaximized()
+        print("Started.")
 
     def clearData(self):
         self.rbcentres = []
@@ -143,10 +174,10 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
             self.UdpRecevierThread.start()
             try:
                 self.ur.sendEndResponse()
-                # print("closing ssh\n")
+                print("closing ssh\n")
                 self.exec.close()
-                subprocess.run(["ssh", "root@10.66.101.121", "killall UDPStreamer"])
-                # print("done\n")
+                subprocess.run(["ssh", "root@"+rpIP, "killall UDPStreamer"])
+                print("done\n")
             finally:
                 event.accept()
         else:
@@ -291,6 +322,13 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
         self.exec = remoteexecutor([sshcmd, "-t", "-t", "root@10.66.101.121", "~/RpRbDAQ/UDPStreamer"])
 
         self.startUdpRecevierThread()
+    @pyqtSlot()
+    def toggleSwitch(self):
+        if self.radioButton_RbMointer.isChecked():
+            self.fs.setStateTwo()
+        else:
+            self.fs.setStateOne()
+
 
 
 def main():

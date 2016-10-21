@@ -21,6 +21,7 @@ class remoteexecutor:
     def __init__(self,cmd):
         self.io_q = Queue()
         self.proc = Popen( cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        #self.proc = Popen( cmd)
         atexit.register(self.proc.kill)
     
 #        Thread(target=self.stream_watcher, name='stdout-watcher',
