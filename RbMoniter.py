@@ -22,10 +22,10 @@ from scipy.signal import savgol_filter
 from scipy.stats import binned_statistic
 
 import RBfitting as fr
-import updreceiver
+import TCPIPreceiver
 from PID import PID
 from remoteexecutor import remoteexecutor
-from FibreSwitchControl import FibreSwitchs
+#from FibreSwitchControl import FibreSwitchs
 
 if getattr(sys, 'frozen', False):
         # we are running in a bundle
@@ -35,14 +35,26 @@ else:
         bundle_dir = os.path.dirname(os.path.abspath(__file__))
 
 aquisitionsize = 150000
-#rpIP='10.66.101.121'
+
+#rpIP='10.66.101.123'
+#localIP='10.66.101.133'
+
+#rpIP='192.168.2.2'
+#localIP='192.168.2.1'
+
 #rpIP='10.42.0.249'
 #localIP='10.42.0.1'
+
 #rpIP='192.168.2.7'
 #localIP='192.168.2.6'
-rpIP='192.168.1.100'
-localIP='192.168.1.1'
 
+#rpIP='192.168.1.100'
+#localIP='192.168.1.1'
+
+localIP=socket.gethostbyname(socket.gethostname()) #socket.getfqdn()
+rpIP=socket.gethostbyname('redpitaya1.sail-laboratories.com')
+print(localIP)
+print(rpIP)
 
 x = np.arange(aquisitionsize)
 
@@ -112,7 +124,7 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
 
         uic.loadUi(os.path.join(bundle_dir, 'RbMoniter.ui'), self)
 
-        self.ur = updreceiver.updreceiver(12345, 12346, 12347, aquisitionsize, rpIP)
+        self.ur = TCPIPreceiver.TCPIPreceiver(12345, 12346, 12347, aquisitionsize, rpIP)
         if sys.platform == 'win32':
             sshcmd = "C:\Program Files (x86)\PuTTY\plink.exe -pw notroot -ssh "
             subprocess.run(sshcmd + "root@" + rpIP + " killall UDPStreamer")
@@ -120,16 +132,22 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
             self.exec = remoteexecutor(sshcmd + "-t " + "-t " + "root@" + rpIP  + " ~/RpRbDAQ/UDPStreamer -i " + localIP)
         else:
             subprocess.run(["ssh", "root@" + rpIP, "killall UDPStreamer"])
-            sshcmd=["ssh", "-t", "-t", "root@" + rpIP, "~/RpRbDAQ/UDPStreamer","-i",localIP, "-a",str(aquisitionsize)]
+            sshcmd=["ssh", "-t", "-t", "root@" + rpIP, "~/RpRbDAQ/UDPStreamer","-i",localIP]
             print(" ".join(sshcmd))
-            self.exec = remoteexecutor(["ssh", "-t", "-t", "root@" + rpIP, "~/RpRbDAQ/UDPStreamer","-i",localIP])
+            self.exec = remoteexecutor(sshcmd)
+
+        time.sleep(1)
+        self.ur.sendAckResponse(10)
+        time.sleep(1)
+        self.ur.receiveDACData()
+        self.ur.recieveTrigerTimeAndTemp()
 
         self.startbutton.clicked.connect(self.startUdpRecevierThread)
         self.stopbutton.clicked.connect(self.stopUdpRecevierThread)
         self.pushButton_savedata.clicked.connect(self.saveTimeSeries)
         # self.pushButton_resetUDP.clicked.connect(self.restartRP)
         self.pushButton_clearData.clicked.connect(self.clearData)
-        self.radioButton_RbMointer.toggled.connect(self.toggleSwitch)
+        #self.radioButton_RbMointer.toggled.connect(self.toggleSwitch)
         #self.radioButton_Spec.clicked.connect(self.toggleSwitch)
 
         self.plot_etalondata = self.pw_etalondata.plot()
@@ -147,8 +165,8 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
         self.plot_velocitytimeseries.setDownsampling(method='peak', auto=True)
         self.plot_temp.setDownsampling(method='peak', auto=True)
 
-        self.fs=FibreSwitchs(port='/dev/tty.usbmodem142121')
-        self.fs.setStateTwo()
+        #self.fs=FibreSwitchs(port='/dev/tty.usbmodem142121')
+        #self.fs.setStateTwo()
 
         #self.showMaximized()
         print("Started.")
@@ -233,6 +251,14 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
         self.plot_rbdata.setData(y=dataB, x=x)
         # start, finish = fr.getRbWindow(dataB[0:120000])
 
+        self.trigtimes.append(trigtime)
+        self.temps.append(temp)
+        self.looptimes.append(looptime)
+
+        self.lcdNumber_dateRate.display(1 / np.mean(np.diff(self.trigtimes[-20:]) / 1000))
+        # self.lcdNumber_triggerCount.display(1 / np.mean(self.looptimes[-20:]))
+        self.lcdNumber_triggerCount.display(len(self.looptimes))
+
 
         # if not len(self.trigtimes) % 30:
         #    self.plot_rbdata.getViewBox().setXRange(start, finish)
@@ -241,9 +267,7 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
     def fitdata(self, dataA, dataB, trigtime, temp, looptime):
         # t = time.time()
 
-        self.trigtimes.append(trigtime)
-        self.temps.append(temp)
-        self.looptimes.append(looptime)
+
 
         self.lcdNumber_dateRate.display(1 / np.mean(np.diff(self.trigtimes[-20:]) / 1000))
         # self.lcdNumber_triggerCount.display(1 / np.mean(self.looptimes[-20:]))
@@ -312,7 +336,7 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
 
         del (self.ur)
         # self.ur=[]
-        self.ur = updreceiver.updreceiver(12345, 12346, 12347, aquisitionsize, "10.66.101.121")
+        self.ur = TCPIPreceiver.TCPIPreceiver(12345, 12346, 12347, aquisitionsize, "10.66.101.121")
         if sys.platform == 'win32':
             sshcmd = "C:\Program Files (x86)\PuTTY\plink.exe -pw notroot -ssh"
         else:
@@ -322,12 +346,12 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
         self.exec = remoteexecutor([sshcmd, "-t", "-t", "root@10.66.101.121", "~/RpRbDAQ/UDPStreamer"])
 
         self.startUdpRecevierThread()
-    @pyqtSlot()
-    def toggleSwitch(self):
-        if self.radioButton_RbMointer.isChecked():
-            self.fs.setStateTwo()
-        else:
-            self.fs.setStateOne()
+    # @pyqtSlot()
+    # def toggleSwitch(self):
+    #     if self.radioButton_RbMointer.isChecked():
+    #         self.fs.setStateTwo()
+    #     else:
+    #         self.fs.setStateOne()
 
 
 
