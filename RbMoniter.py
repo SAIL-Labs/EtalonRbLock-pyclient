@@ -14,6 +14,7 @@ import time
 
 import numpy as np
 import scipy.io
+import PyQt5
 from PyQt5 import QtCore, QtWidgets
 from PyQt5 import uic
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
@@ -152,6 +153,8 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
 
         self.plot_etalondata = self.pw_etalondata.plot()
         self.plot_rbdata = self.pw_rbdata.plot()
+        self.DiagnosticRbPlot = self.pw_DiagnosticRbPlot.plot()
+        self.DiagnosticEtalonPlot = self.pw_DiagnosticEtalonPlot.plot()
         self.plot_rawtimeseriesPlot = self.glw_rawtimeseries.addPlot()
         self.plot_rawtimeseries1 = self.plot_rawtimeseriesPlot.plot(pen=(0, 0, 200))
         self.plot_rawtimeseries2 = self.plot_rawtimeseriesPlot.plot(pen=(0, 128, 0))
@@ -160,6 +163,8 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
 
         self.plot_etalondata.setDownsampling(method='peak', auto=True)
         self.plot_rbdata.setDownsampling(method='peak', auto=True)
+        self.DiagnosticRbPlot.setDownsampling(method='peak', auto=True)
+        self.DiagnosticEtalonPlot.setDownsampling(method='peak', auto=True)
         self.plot_rawtimeseries1.setDownsampling(method='peak', auto=True)
         self.plot_rawtimeseries2.setDownsampling(method='peak', auto=True)
         self.plot_velocitytimeseries.setDownsampling(method='peak', auto=True)
@@ -179,18 +184,17 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
         self.looptimes = []
 
     def closeEvent(self, event):
-        try:
-            self.UdpRecevierThread.terminate()
-        finally:
-            pass
+        if self.stopbutton.isEnabled():
+            event.ignore()
+            return
 
         reply = QtWidgets.QMessageBox.question(self, 'Message',
                                                "Are you sure to quit?", QtWidgets.QMessageBox.Yes,
                                                QtWidgets.QMessageBox.No)
 
         if reply == QtWidgets.QMessageBox.Yes:
-            self.UdpRecevierThread.start()
             try:
+                self.stopUdpRecevierThread()
                 self.ur.sendEndResponse()
                 print("closing ssh\n")
                 self.exec.close()
@@ -241,21 +245,27 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
         self.startbutton.setEnabled(True)
         self.stopbutton.setEnabled(False)
 
-    @pyqtSlot(np.ndarray, np.ndarray, float, float, float)
+    @pyqtSlot(np.ndarray, np.ndarray, float, float, float,name="plotdata")
     def plotdata(self, dataA, dataB, trigtime, temp, looptime):
-        # print(trigtime,temp,1/looptime)
-
-        # t = time.time()
-        # if not len(self.trigtimes) % 15:
-        self.plot_etalondata.setData(y=dataA, x=x)
-        self.plot_rbdata.setData(y=dataB, x=x)
-        # start, finish = fr.getRbWindow(dataB[0:120000])
 
         self.trigtimes.append(trigtime)
         self.temps.append(temp)
         self.looptimes.append(looptime)
+        if not len(self.trigtimes) % self.spinBox_updaterate.value():  # update every spinBox_updaterate.value() samples
+            # print(trigtime,temp,1/looptime)
+            if self.tabWidget.currentIndex():
+                self.DiagnosticRbPlot.setData(y=dataB, x=x)
+                self.DiagnosticEtalonPlot.setData(y=dataA, x=x)
+            else:
+                # t = time.time()
+                #
+                self.plot_etalondata.setData(y=dataA, x=x)
+                self.plot_rbdata.setData(y=dataB, x=x)
+                if (len(self.trigtimes)>1):
+                    self.plot_temp.setData(y=self.temps,x=(np.asarray(self.trigtimes)-self.trigtimes[0])/1000)
+                # start, finish = fr.getRbWindow(dataB[0:120000])
 
-        self.lcdNumber_dateRate.display(1 / np.mean(np.diff(self.trigtimes[-20:]) / 1000))
+        self.lcdNumber_dateRate.display(1 / np.mean(np.diff(self.trigtimes[-100:]) / 1000))
         # self.lcdNumber_triggerCount.display(1 / np.mean(self.looptimes[-20:]))
         self.lcdNumber_triggerCount.display(len(self.looptimes))
 
@@ -266,12 +276,6 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
     @pyqtSlot(np.ndarray, np.ndarray, float, float, float)
     def fitdata(self, dataA, dataB, trigtime, temp, looptime):
         # t = time.time()
-
-
-
-        self.lcdNumber_dateRate.display(1 / np.mean(np.diff(self.trigtimes[-20:]) / 1000))
-        # self.lcdNumber_triggerCount.display(1 / np.mean(self.looptimes[-20:]))
-        self.lcdNumber_triggerCount.display(len(self.looptimes))
 
         start, finish = fr.getRbWindow(dataB[0:116000])
         newRBcentre = fr.fitRblines(x[start:finish:1], dataB[start:finish:1] * -1, start, finish)

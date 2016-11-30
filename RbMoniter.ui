@@ -60,10 +60,10 @@
        </attribute>
        <layout class="QGridLayout" name="gridLayout_2">
         <item row="0" column="0">
-         <widget class="PlotWidget" name="EtalonPlot"/>
+         <widget class="PlotWidget" name="pw_DiagnosticEtalonPlot"/>
         </item>
         <item row="1" column="0">
-         <widget class="QGraphicsView" name="RbPlot"/>
+         <widget class="PlotWidget" name="pw_DiagnosticRbPlot"/>
         </item>
        </layout>
       </widget>
@@ -235,6 +235,23 @@
              </property>
             </widget>
            </item>
+           <item row="7" column="1">
+            <widget class="QSpinBox" name="spinBox_updaterate">
+             <property name="minimum">
+              <number>1</number>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="0">
+            <widget class="QLabel" name="label_7">
+             <property name="text">
+              <string>Update Rate (sam)</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>
@@ -402,32 +419,6 @@
              </property>
              <property name="text">
               <string>Std Etalon</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item>
-         <widget class="QGroupBox" name="opticalSwitchBox">
-          <property name="title">
-           <string>Optical Switch Status</string>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_6">
-           <item row="0" column="0">
-            <widget class="QRadioButton" name="radioButton_RbMointer">
-             <property name="text">
-              <string>Rb Moniter</string>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QRadioButton" name="radioButton_Spec">
-             <property name="text">
-              <string>Spectrograph</string>
              </property>
             </widget>
            </item>
