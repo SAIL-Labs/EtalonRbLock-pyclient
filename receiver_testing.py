@@ -17,12 +17,12 @@ time.sleep(1)
 ur.receiveDACData()
 ur.recieveTrigerTimeAndTemp()
 
-while (1):
-    t = time.time()
-    ur.sendAckResponse(10)
-    ur.receiveDACData()
-    ur.recieveTrigerTimeAndTemp()
-
-    elapsed = time.time() - t
-
-    print(1/elapsed)
+# while (1):
+#     t = time.time()
+#     ur.sendAckResponse(10)
+#     ur.receiveDACData()
+#     ur.recieveTrigerTimeAndTemp()
+#
+#     elapsed = time.time() - t
+#
+#     print(1/elapsed)

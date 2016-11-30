@@ -76,7 +76,8 @@ class TCPIPreceiver(metaclass=Singleton):
     def sendEndResponse(self):
         s = self.setupSocket(self.PORT_ACK, 1024)
         MESSAGE = "%s %f\n" % ('END', float(10.0))
-        s.sendto(str.encode(MESSAGE))
+        s.send(str.encode(MESSAGE))
+        s.close()
         #self.receiveDACData()
 
     def receiveDACData(self):
