@@ -99,7 +99,7 @@ class TCPIPreceiver(metaclass=Singleton):
 
     def recieveTrigerTimeAndTemp(self):
         s = self.setupSocket(self.PORT_ACK, 1024)
-        ttrig = s.recv_into(self.timetrigger, 8)
+        ttrig = s.recv_into(self.timetrigger, )
         ttemp = s.recv_into(self.temp, 4)
         s.close()
         return (ttemp, ttrig)

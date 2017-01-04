@@ -14,11 +14,11 @@ from numba import jit
 from scipy.constants import c
 from scipy.optimize import leastsq
 from scipy.signal import savgol_filter
-
+import peakutils
 import peakdetect
 
-if 'updreceiver' not in sys.modules:
-    import updreceiver
+if 'TCPIPreceiver' not in sys.modules:
+    import TCPIPreceiver
 
 # from remoteexecutor import remoteexecutor
 
@@ -38,7 +38,7 @@ def fitwavelengthscale(centers):
                              3.66646723932718e-05, - 0.000122681755101439, - 0.000393421157355078])
     # peaksep_freq = np.array([0, - 229.851800000000, - 151.381500000000, - 72.9112000000000,
     #                         - 18.0555500000000, 60.4147500000000, 193.740700000000])
-    peaksused = np.array([2, 4, 5, 6])
+    peaksused = np.array([4, 5, 6])
     p = np.polyfit(centers, peaksep_wave[peaksused], 1)
     return p[0]
 
@@ -99,19 +99,22 @@ def residualsRb(p, y, x):
     return err
 
 
-@jit(cache=True)
-def fitEtalon(x, data, centrestart):
-    # data = savgol_filter(data, 121, 3)
-    p = np.array([1, 1, centrestart, 45000, 3200, 0])
-
-    pbest = leastsq(residualsEtalon, p, args=(data, x), full_output=1)
+#@jit(cache=True)
+def fitEtalon(x, data, decimation=1):
+    centrestart = data.argmax()
+    if centrestart==0:
+        raise RuntimeError
+    #data = savgol_filter(data, 1001, 3)
+    data=data/data.max()
+    p = np.array([2, 2, centrestart, 9000, 1, 0])
+    print(p)
+    pbest = leastsq(residualsEtalon, p, args=(data[1000:centrestart*2:decimation], x[1000:centrestart*2:decimation]), full_output=True)
     best_parameters = pbest[0]
 
-    if SHOULDPLOT_etalon:
-        fit = AsymLorentzian(x, best_parameters)
-        plt.clf()
-        plt.plot(x, data, x, fit)
-        plt.show()
+    # if SHOULDPLOT_etalon:
+    #     fit = AsymLorentzian(x, best_parameters)
+    #     plt.clf()
+    #     plt.show()
 
     return best_parameters[2]
 
@@ -119,33 +122,41 @@ def fitEtalon(x, data, centrestart):
 @jit(cache=True, nopython=True)
 def getRbWindow(rbdata, left=0):
     if left:
-        start = np.argmin(rbdata) - 19000
+        start = np.argmax(rbdata) - 19000
     else:
-        start = np.argmin(rbdata) - 5000
-    finish = start + 10000
+        start = np.argmax(rbdata) - 2000
+    finish = start + 1500
 
     return start, finish
 
 
-def fitRblines(x, datab, start, finish):
+def fitRblines(x, datab):
     global pRbstart
-    datab = savgol_filter(datab, 101, 3)
-    xsubwin = x
+    #datab = savgol_filter(datab, 101, 3)
+
+
+    datab=(datab / datab.mean() - 1)
+
+    start, finish = getRbWindow(datab)
+
+    datab = datab[start:finish:1]
+    x = x[start:finish:1]
 
     # defining the 'background' part of the spectrum #
-    ind_bg_low = (x > start) & (x < start + 3000)
-    ind_bg_high = (x > finish - 3000) & (x < finish)
+    ind_bg_low = (x > start) & (x < start + 400)
+    ind_bg_high = (x > finish - 400) & (x < finish)
 
     x_bg = np.concatenate((x[ind_bg_low], x[ind_bg_high]))
     b_bg = np.concatenate((datab[ind_bg_low], datab[ind_bg_high]))
 
     # fitting the background to a line #
-    pf = np.poly1d(np.polyfit(x_bg, b_bg, 4))
+    pf = np.poly1d(np.polyfit(x_bg, b_bg, 5))
 
     # xsubwin=x[start:finish]
     # removing fitted background #
-    background = pf(xsubwin)
+    background = pf(x)
     b_bg_corr = datab - background
+    b_bg_corr=b_bg_corr/b_bg_corr.max()
 
     if 0:
         plt.plot(x, b_bg_corr, x, datab, x, background)
@@ -154,21 +165,29 @@ def fitRblines(x, datab, start, finish):
         plt.pause(0.01)
 
     try:
-        pkslocs = peakdetect.peakdetect(b_bg_corr, xsubwin, delta=100, lookahead=60)
-        locs, pks = zip(*pkslocs[0])
-        # pks, locs = (list(t) for t in zip(*sorted(zip(pks, locs), reverse=True)))
-        sort_index = np.argsort(locs)
-        locs = np.asarray(locs)[sort_index]
-        pks = np.asarray(pks)[sort_index]
-        locs = locs[0:6]
-        pks = pks[0:6]
+        if 1:
+            indexes = peakutils.indexes(savgol_filter(b_bg_corr, 11, 3), thres=0.2, min_dist=50)
+            locs = peakutils.interpolate(x,b_bg_corr,ind=indexes,width=20)
+
+            pks=b_bg_corr[indexes]
+            return locs
+
+        else:
+            pkslocs = peakdetect.peakdetect(b_bg_corr, xsubwin, delta=100, lookahead=60)
+            locs, pks = zip(*pkslocs[0])
+            # pks, locs = (list(t) for t in zip(*sorted(zip(pks, locs), reverse=True)))
+            sort_index = np.argsort(locs)
+            locs = np.asarray(locs)[sort_index]
+            pks = np.asarray(pks)[sort_index]
+            locs = locs[0:6]
+            pks = pks[0:6]
 
         if SHOULDPLOT_RB:
             plt.plot(xsubwin, b_bg_corr, locs, pks, 'go')
     except ValueError:
         print("error rbfitting")
-        print(pkslocs)
-        return [0, 0, 0, 0, 0, 0]
+        #print(locs)
+        return [0, 0, 0]
         # plt.plot(xsubwin, b_bg_corr)
 
     try:
@@ -206,40 +225,57 @@ def fitRblines(x, datab, start, finish):
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
+    from scipy import signal
+    from peakutils import plot as pkplot
+    import socket
 
-    SHOULDPLOT_RB = 1
+    sos = np.asarray(
+        [[5.80953794660816e-06, 1.16190758932163e-05, 5.80953794660816e-06, 1, -1.99516198526679, 0.995185223418579],
+         [0.00240740227660535, 0.00240740227660535, 0, 1, -0.995185195446789, 0]])
+    rpIP = socket.gethostbyname('redpitaya1.sail-laboratories.com')
+
+    SHOULDPLOT_RB = 0
     SHOULDPLOT_etalon = 0
     plt.ion()
-    ur = updreceiver.updreceiver(12345, 12346, 12347, 150000, "10.66.101.121")
+    ur = TCPIPreceiver.TCPIPreceiver(12345, 12346, 12347, 20000, rpIP)
     rbcentres = []
     etaloncentres = []
 
-    x = np.arange(250000)
+    x = np.arange(20000)
+    ur.sendAckResponse(4.5)
+    time.sleep(0.2)
+    ur.receiveDACData()
+    ur.recieveTrigerTimeAndTemp()
+
     # rbcentres = np.empty((6,1))
     t = time.time()
-    plt.clf()
-    for i in range(0, 1):
-        ur.doALL()
+    #plt.clf()
+    for i in range(0, 20):
+        ur.doALL(4.5)
         # b=(ur.dataB-ur.dataB[320000])*-1.0
 
         # start = np.argmin(ur.dataB[0:230000])- 19000
 
-        start, finish = getRbWindow(ur.dataB[0:118000])
+        #start, finish = getRbWindow(ur.dataB)
+        newRBcentre = fitRblines(x, ur.dataB)
 
-        newRBcentre = fitRblines(x[start:finish:1], ur.dataB[start:finish:1] * -1, start, finish)
         rbcentres.append(newRBcentre)
+
         # rbcentres=np.hstack([rbcentres,newRBcentre])
 
-        centrestart = ur.dataA.argmax()
-        etaloncentre = fitEtalon(x[centrestart - 30000:centrestart + 50000:1000],
-                                 ur.dataA[centrestart - 30000:centrestart + 50000:1000], centrestart)
+        etalondata=signal.sosfiltfilt(sos, ur.dataA)
+        etaloncentre = fitEtalon(x, etalondata,30)
         etaloncentres.append(etaloncentre)
         # print(i)
 
+    fitwavelengthscale(newRBcentre)
     elapsed = time.time() - t
 
     print((i + 1) / elapsed)
-    print(centrestart)
+
+    plt.plot(range(0, 20), (etaloncentres - np.mean(etaloncentres)), range(0, 20),
+             np.mean(rbcentres, axis=1) - np.mean(rbcentres, axis=1).mean())
+    plt.plot(range(0, 20), (etaloncentres - np.mean(etaloncentres))-(np.mean(rbcentres, axis=1) - np.mean(rbcentres, axis=1).mean()))
 
     # del(ur)
 #    errorsig = np.mean(rbcentres, axis=1) - etaloncentres
@@ -251,3 +287,5 @@ if __name__ == '__main__':
 # del ur
 # centrestart=150000
 #    a[ 2:21:2,:]
+
+

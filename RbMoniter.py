@@ -14,50 +14,45 @@ import time
 
 import numpy as np
 import scipy.io
+from scipy import signal
+from scipy.signal import savgol_filter
+from scipy.stats import binned_statistic
+
 import PyQt5
 from PyQt5 import QtCore, QtWidgets
 from PyQt5 import uic
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
 import pyqtgraph
-from scipy.signal import savgol_filter
-from scipy.stats import binned_statistic
 
 import RBfitting as fr
 import TCPIPreceiver
 from PID import PID
 from remoteexecutor import remoteexecutor
+
+
+sos = np.asarray([[5.80953794660816e-06, 1.16190758932163e-05, 5.80953794660816e-06, 1, -1.99516198526679, 0.995185223418579],[0.00240740227660535, 0.00240740227660535, 0, 1, -0.995185195446789, 0]])
+
 #from FibreSwitchControl import FibreSwitchs
 
 if getattr(sys, 'frozen', False):
         # we are running in a bundle
+        # noinspection PyProtectedMember
         bundle_dir = sys._MEIPASS
 else:
         # we are running in a normal Python environment
         bundle_dir = os.path.dirname(os.path.abspath(__file__))
 
-aquisitionsize = 150000
-
-#rpIP='10.66.101.123'
-#localIP='10.66.101.133'
-
-#rpIP='192.168.2.2'
-#localIP='192.168.2.1'
-
-#rpIP='10.42.0.249'
-#localIP='10.42.0.1'
-
-#rpIP='192.168.2.7'
-#localIP='192.168.2.6'
-
-#rpIP='192.168.1.100'
-#localIP='192.168.1.1'
+aquisitionsize = 20000
 
 localIP=socket.gethostbyname(socket.gethostname()) #socket.getfqdn()
 rpIP=socket.gethostbyname('redpitaya1.sail-laboratories.com')
+
 print(localIP)
 print(rpIP)
 
 x = np.arange(aquisitionsize)
+
+temp=4.5
 
 class getDataRecevierWorker(QtCore.QObject):
     finished = pyqtSignal()
@@ -67,7 +62,7 @@ class getDataRecevierWorker(QtCore.QObject):
     running = True
     PIDready = False
     curErr = 0
-    curtemp = 10
+    curtemp = temp
 
     def __init__(self, ur):
         QtCore.QObject.__init__(self)
@@ -137,9 +132,9 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
             print(" ".join(sshcmd))
             self.exec = remoteexecutor(sshcmd)
 
-        time.sleep(1)
-        self.ur.sendAckResponse(10)
-        time.sleep(1)
+        time.sleep(0.5)
+        self.ur.sendAckResponse(temp)
+        time.sleep(0.5)
         self.ur.receiveDACData()
         self.ur.recieveTrigerTimeAndTemp()
 
@@ -245,12 +240,15 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
         self.startbutton.setEnabled(True)
         self.stopbutton.setEnabled(False)
 
+    def receiveData(self, dataA, dataB, trigtime, temp, looptime):
+        pass
+
+
     @pyqtSlot(np.ndarray, np.ndarray, float, float, float,name="plotdata")
     def plotdata(self, dataA, dataB, trigtime, temp, looptime):
 
-        self.trigtimes.append(trigtime)
-        self.temps.append(temp)
-        self.looptimes.append(looptime)
+
+
         if not len(self.trigtimes) % self.spinBox_updaterate.value():  # update every spinBox_updaterate.value() samples
             # print(trigtime,temp,1/looptime)
             if self.tabWidget.currentIndex():
@@ -265,9 +263,6 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
                     self.plot_temp.setData(y=self.temps,x=(np.asarray(self.trigtimes)-self.trigtimes[0])/1000)
                 # start, finish = fr.getRbWindow(dataB[0:120000])
 
-        self.lcdNumber_dateRate.display(1 / np.mean(np.diff(self.trigtimes[-100:]) / 1000))
-        # self.lcdNumber_triggerCount.display(1 / np.mean(self.looptimes[-20:]))
-        self.lcdNumber_triggerCount.display(len(self.looptimes))
 
 
         # if not len(self.trigtimes) % 30:
@@ -277,27 +272,46 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
     def fitdata(self, dataA, dataB, trigtime, temp, looptime):
         # t = time.time()
 
-        start, finish = fr.getRbWindow(dataB[0:116000])
-        newRBcentre = fr.fitRblines(x[start:finish:1], dataB[start:finish:1] * -1, start, finish)
-        self.rbcentres.append(newRBcentre)
+        if (len(self.trigtimes) > 1):
+            self.lcdNumber_dateRate.display(1 / np.mean(np.diff(self.trigtimes[-100:]) / 1000))
+            # self.lcdNumber_triggerCount.display(1 / np.mean(self.looptimes[-20:]))
+            self.lcdNumber_triggerCount.display(len(self.looptimes))
 
-        centrestart = dataA.argmax()
-        etaloncentre = fr.fitEtalon(x[centrestart - 40000:centrestart + 50000:10],
-                                    dataA[centrestart - 40000:centrestart + 50000:10], centrestart)
-        self.etaloncentres.append(etaloncentre)
+        try:
+            newRBcentre =  fr.fitRblines(x, dataB)
+            etalondata = signal.sosfiltfilt(sos, dataA)
+
+            etaloncentre = fr.fitEtalon(x[0:20000:1], etalondata[0:20000:1],30)
+            if len(self.rbcentres) > 2 and (abs(np.mean(newRBcentre)-np.mean(self.rbcentres[-1]))>20 or abs(etaloncentre-self.etaloncentres[-1])>20):
+                raise RuntimeError
+            else:
+                self.etaloncentres.append(etaloncentre)
+                self.rbcentres.append(newRBcentre)
+                self.trigtimes.append(trigtime)
+                self.temps.append(temp)
+                self.looptimes.append(looptime)
+
+        except RuntimeError:
+            pass
 
         plotime = np.asarray(self.trigtimes) / 1000
         plotime -= plotime[0]
 
-        if len(self.rbcentres) > 81:
-            rbplotdata = savgol_filter(np.mean(np.asarray(self.rbcentres), axis=1),
-                                       self.spinBox_smoothingWindow.value(), 3)
+        if len(self.rbcentres) > 2:
+            # rbplotdata = savgol_filter(np.mean(np.asarray(self.rbcentres), axis=1),
+            #                            self.spinBox_smoothingWindow.value(), 3)
+            rbplotdata = np.mean(np.asarray(self.rbcentres), axis=1)
+            rbplotdata -= rbplotdata[0]
+
             etalonplotdata = np.asarray(self.etaloncentres)
-            error = etalonplotdata - rbplotdata
+            etalonplotdata-=etalonplotdata[0]
+
+            error = rbplotdata-etalonplotdata
             if 0:
-                error = fr.nm2ms((error - error[0:31].mean()) * 3.1577e-7)
+                error = fr.nm2ms((error - error[0:31].mean()) * 1.9881681277862515e-06)
             else:
-                error -= error[0:31].mean()
+                pass
+                #error -= error[0:31].mean()
 
             self.errorValueReady.emit(error[-30:].mean())
 
@@ -311,16 +325,16 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
                 smootherror = error
                 veltimes = plotime
 
-            if not len(self.trigtimes) % 5:
+            if not len(self.trigtimes) % 4:
                 self.plot_rawtimeseries1.setData(y=rbplotdata - rbplotdata.mean(), x=plotime)
                 self.plot_rawtimeseries2.setData(y=etalonplotdata - etalonplotdata.mean(), x=plotime)
                 self.plot_velocitytimeseries.setData(y=smootherror, x=veltimes)
                 self.plot_temp.setData(y=np.asarray(self.temps), x=plotime)
 
-        if len(self.rbcentres) > 101 and not len(self.trigtimes) % 30:
+        if len(self.rbcentres) > 101 and not len(self.trigtimes) % 2:
             # self.lcdNumber_rbStd.display(sigma_clip(rbplotdata,sigma=4).std())
             # self.lcdNumber_etalonStd.display(sigma_clip(etalonplotdata,sigma=4).std())
-            self.lcdNumber_rbStd.display(rbplotdata.std() * 3.1577e-7)
+            self.lcdNumber_rbStd.display(rbplotdata.std() * 1.9881681277862515e-06)
             self.lcdNumber_etalonStd.display(smootherror.std())
             # print(1/(time.time() - t))
 

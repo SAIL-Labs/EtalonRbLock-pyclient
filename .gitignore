@@ -1,3 +1,5 @@
 build
 *.mat
 dist
+etalonpeak.csv
+lookatdata.m
