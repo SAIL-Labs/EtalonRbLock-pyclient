@@ -6,134 +6,86 @@ Created on Fri Aug 19 14:11:52 2016
 @author: chrisbetters
 """
 
+import itertools
+import os
 import socket
 import subprocess
 import sys
-import os
 import time
-
-import numpy as np
-import scipy.io
-from scipy import signal
-from scipy.signal import savgol_filter
-from scipy.stats import binned_statistic
+from collections import deque
 
 import PyQt5
+import numpy as np
+import scipy.io
 from PyQt5 import QtCore, QtWidgets
 from PyQt5 import uic
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
-import pyqtgraph
+from scipy import signal
+from scipy.stats import binned_statistic
 
 import RBfitting as fr
 import TCPIPreceiver
 from PID import PID
+from RbMoniterUI import Ui_RbMoniter
 from remoteexecutor import remoteexecutor
 
+from configVariables import *
 
-sos = np.asarray([[5.80953794660816e-06, 1.16190758932163e-05, 5.80953794660816e-06, 1, -1.99516198526679, 0.995185223418579],[0.00240740227660535, 0.00240740227660535, 0, 1, -0.995185195446789, 0]])
-
-#from FibreSwitchControl import FibreSwitchs
-
-if getattr(sys, 'frozen', False):
-        # we are running in a bundle
-        # noinspection PyProtectedMember
-        bundle_dir = sys._MEIPASS
+if getattr(sys, 'frozen', False) or sys.platform == 'win32':
+    # we are running in a bundle
+    # noinspection PyProtectedMember
+    bundle_dir = os.path.dirname(os.path.abspath(__file__))
+    print(bundle_dir)
 else:
-        # we are running in a normal Python environment
-        bundle_dir = os.path.dirname(os.path.abspath(__file__))
-
-aquisitionsize = 20000
-
-localIP=socket.gethostbyname(socket.gethostname()) #socket.getfqdn()
-rpIP=socket.gethostbyname('redpitaya1.sail-laboratories.com')
-
-print(localIP)
-print(rpIP)
-
-x = np.arange(aquisitionsize)
-
-temp=4.5
-
-class getDataRecevierWorker(QtCore.QObject):
-    finished = pyqtSignal()
-    dataReady = pyqtSignal(np.ndarray, np.ndarray, float, float, float)
-    errorOccured = pyqtSignal()
-
-    running = True
-    PIDready = False
-    curErr = 0
-    curtemp = temp
-
-    def __init__(self, ur):
-        QtCore.QObject.__init__(self)
-        self.ur = ur
-
-    @pyqtSlot()
-    def dataRecvLoop(self):
-        print("dataRecvLoop start\n")
-        self.running = True
-        while self.running:
-            try:
-                if self.PIDready:
-                    self.tempchange = self.PID.update(self.curErr, self.ur.timetrigger)
-                    # self.curtemp=self.curtemp + self.tempchange
-                    # print(self.curtemp+self.tempchange)
-
-                t = time.time()
-                self.ur.doALL(self.curtemp)
-                elapsed = time.time() - t
-
-                self.dataReady.emit(self.ur.dataA, self.ur.dataB, self.ur.timetrigger, self.ur.temp, elapsed)
-
-                if not self.PIDready:
-                    self.PID = PID(kp=0.0005, starttime=float(self.ur.timetrigger))
-                    self.PIDready = True
-
-            except socket.timeout:
-                print("sock timeout error\n")
-                self.errorOccured.emit()
-                break
-
-        print("getDataRecevierWorker while loop ended")
-        self.finished.emit()
-
-    @pyqtSlot()
-    def stopLoop(self):
-        self.running = False
-
-    @pyqtSlot(float)
-    def setError(self, curErr):
-        self.curErr = curErr
+    # we are running in a normal Python environment
+    bundle_dir = os.path.dirname(os.path.abspath(__file__))
+    with open('RbMoniterUI.py', 'w') as fout:
+        PyQt5.uic.compileUi(os.path.join(bundle_dir, 'RbMoniter.ui'), fout)
+    print(bundle_dir)
 
 
-class RbMoniterProgram(QtWidgets.QMainWindow):
-    rbcentres = []
-    etaloncentres = []
-    trigtimes = []
-    temps = []
-    looptimes = []
+localIP = socket.gethostbyname(socket.gethostname())  # socket.getfqdn()
+rpIP = socket.gethostbyname('redpitaya1.sail-laboratories.com')
 
-    errorValueReady = pyqtSignal(float)
+class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter):
+    rbcentres = deque()
+    etaloncentres = deque()
+    trigtimesfitted = deque()
+
+    trigtimes = deque()
+    temps = deque()
+    looptimes = deque()
 
     def __init__(self):
-        QtWidgets.QMainWindow.__init__(self)
+        super(RbMoniterProgram, self).__init__()
+        self.setupUi(self)
+        self.showMaximized()
+        # uic.loadUi(os.path.join(bundle_dir, 'RbMoniter.ui'), self)
 
-        uic.loadUi(os.path.join(bundle_dir, 'RbMoniter.ui'), self)
+        self.lineEdit_rpIP.setText(str(rpIP))
+        self.lineEdit_localIP.setText(str(localIP))
 
         self.ur = TCPIPreceiver.TCPIPreceiver(12345, 12346, 12347, aquisitionsize, rpIP)
         if sys.platform == 'win32':
-            sshcmd = "C:\Program Files (x86)\PuTTY\plink.exe -pw notroot -ssh "
+            sshcmd = "\"C:\Program Files (x86)\PuTTY\plink.exe\" -pw notroot -ssh "
             subprocess.run(sshcmd + "root@" + rpIP + " killall UDPStreamer")
 
-            self.exec = remoteexecutor(sshcmd + "-t " + "-t " + "root@" + rpIP  + " ~/RpRbDAQ/UDPStreamer -i " + localIP)
+            self.exec = remoteexecutor(sshcmd + "-t " + "-t " + "root@" + rpIP + " ~/RpRbDAQ/UDPStreamer -i " + localIP + " -m " + "1 " + "-a " + str(aquisitionsize))
         else:
             subprocess.run(["ssh", "root@" + rpIP, "killall UDPStreamer"])
-            sshcmd=["ssh", "-t", "-t", "root@" + rpIP, "~/RpRbDAQ/UDPStreamer","-i",localIP]
+            sshcmd = ["ssh", "-t", "-t", "root@" + rpIP, "~/RpRbDAQ/UDPStreamer", "-i", localIP, "-m", "1","-a",str(aquisitionsize)]
             print(" ".join(sshcmd))
             self.exec = remoteexecutor(sshcmd)
 
+        if 'darwin' in sys.platform:
+            print('Running \'caffeinate\' on MacOSX to prevent the system from sleeping')
+            subprocess.Popen('caffeinate')
+
         time.sleep(0.5)
-        self.ur.sendAckResponse(temp)
+        #self.ur.sendAckResponse(self.doubleSpinBox_tempsetpoint.value())
+        self.doubleSpinBox_tempsetpoint.setValue(starttemp)
+        self.ur.sendAckResponse(starttemp)
+        #self.ur.sendAckResponse(0.55)
         time.sleep(0.5)
         self.ur.receiveDACData()
         self.ur.recieveTrigerTimeAndTemp()
@@ -143,8 +95,6 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
         self.pushButton_savedata.clicked.connect(self.saveTimeSeries)
         # self.pushButton_resetUDP.clicked.connect(self.restartRP)
         self.pushButton_clearData.clicked.connect(self.clearData)
-        #self.radioButton_RbMointer.toggled.connect(self.toggleSwitch)
-        #self.radioButton_Spec.clicked.connect(self.toggleSwitch)
 
         self.plot_etalondata = self.pw_etalondata.plot()
         self.plot_rbdata = self.pw_rbdata.plot()
@@ -165,18 +115,23 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
         self.plot_velocitytimeseries.setDownsampling(method='peak', auto=True)
         self.plot_temp.setDownsampling(method='peak', auto=True)
 
-        #self.fs=FibreSwitchs(port='/dev/tty.usbmodem142121')
-        #self.fs.setStateTwo()
+        self.doubleSpinBox_P.valueChanged.connect(self.updatePIDparameters)
+        self.doubleSpinBox_I.valueChanged.connect(self.updatePIDparameters)
+        self.doubleSpinBox_D.valueChanged.connect(self.updatePIDparameters)
+        self.pid = PID()
+        self.pid.setKpid(self.doubleSpinBox_P.value(), self.doubleSpinBox_I.value(), self.doubleSpinBox_D.value())
 
-        #self.showMaximized()
         print("Started.")
 
     def clearData(self):
-        self.rbcentres = []
-        self.etaloncentres = []
-        self.trigtimes = []
-        self.temps = []
-        self.looptimes = []
+        self.rbcentres.clear()
+        self.etaloncentres.clear()
+        self.trigtimes.clear()
+        self.temps.clear()
+        self.looptimes.clear()
+        self.trigtimesfitted.clear()
+        self.pid=PID()
+        self.updatePIDparameters(0)
 
     def closeEvent(self, event):
         if self.stopbutton.isEnabled():
@@ -193,7 +148,7 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
                 self.ur.sendEndResponse()
                 print("closing ssh\n")
                 self.exec.close()
-                subprocess.run(["ssh", "root@"+rpIP, "killall UDPStreamer"])
+                subprocess.run(["ssh", "root@" + rpIP, "killall UDPStreamer"])
                 print("done\n")
             finally:
                 event.accept()
@@ -203,18 +158,19 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
     def startUdpRecevierThread(self):
         self.UdpRecevierThread = QtCore.QThread(self)
         self.UdpRecevierThread.setTerminationEnabled(True)
-        self.worker = getDataRecevierWorker(self.ur)
+        self.worker = getDataRecevierWorker(self.ur, self.doubleSpinBox_tempsetpoint.value())
 
         self.worker.moveToThread(self.UdpRecevierThread)
         self.UdpRecevierThread.started.connect(self.worker.dataRecvLoop)
-        self.stopbutton.clicked.connect(self.worker.stopLoop, type=QtCore.Qt.DirectConnection)
-        self.errorValueReady.connect(self.worker.setError, type=QtCore.Qt.DirectConnection)
+        self.stopbutton.clicked.connect(self.stopClicked)
+        self.doubleSpinBox_tempsetpoint.valueChanged.connect(self.tempChanged)
+        self.worker.dataReady.connect(self.fitdata)
 
         self.worker.finished.connect(self.UdpRecevierThread.quit)
         self.worker.dataReady.connect(self.plotdata)
-        self.checkBox_fitting.stateChanged.connect(self.toggleFittingsConection)
-        if self.checkBox_fitting.isChecked():
-            self.worker.dataReady.connect(self.fitdata)
+        # self.checkBox_fitting.stateChanged.connect(self.toggleFittingsConection)
+        # if self.checkBox_fitting.isChecked():
+        #    self.worker.dataReady.connect(self.fitdata)
 
         self.worker.errorOccured.connect(self.restartRP)
 
@@ -223,11 +179,23 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
         self.startbutton.setEnabled(False)
         self.stopbutton.setEnabled(True)
 
-    def toggleFittingsConection(self):
-        if self.checkBox_fitting.isChecked():
-            self.worker.dataReady.connect(self.fitdata)
-        else:
-            self.worker.dataReady.disconnect(self.fitdata)
+    @pyqtSlot()
+    def stopClicked(self):
+        self.worker.stop()
+
+    @pyqtSlot(float)
+    def tempChanged(self,temp):
+        self.worker.tempchangedinGUI(temp)
+
+    # def toggleFittingsConection(self):
+    #     if self.checkBox_fitting.isChecked():
+    #         self.worker.dataReady.connect(self.fitdata, type=QtCore.Qt.UniqueConnection)
+    #     else:
+    #         while True:
+    #             try:
+    #                 self.worker.dataReady.disconnect(self.fitdata)
+    #             except TypeError:
+    #                 break
 
     def stopUdpRecevierThread(self):
         # QtWidgets.QApplication.processEvents()
@@ -240,16 +208,14 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
         self.startbutton.setEnabled(True)
         self.stopbutton.setEnabled(False)
 
-    def receiveData(self, dataA, dataB, trigtime, temp, looptime):
-        pass
 
-
-    @pyqtSlot(np.ndarray, np.ndarray, float, float, float,name="plotdata")
+    @pyqtSlot(np.ndarray, np.ndarray, float, float, float, name="plotdata")
     def plotdata(self, dataA, dataB, trigtime, temp, looptime):
+        self.trigtimes.append(trigtime)
+        self.temps.append(temp)
+        self.looptimes.append(looptime)
 
-
-
-        if not len(self.trigtimes) % self.spinBox_updaterate.value():  # update every spinBox_updaterate.value() samples
+        if not len(self.trigtimes) % 1:  # update every spinBox_updaterate.value() samples
             # print(trigtime,temp,1/looptime)
             if self.tabWidget.currentIndex():
                 self.DiagnosticRbPlot.setData(y=dataB, x=x)
@@ -259,84 +225,141 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
                 #
                 self.plot_etalondata.setData(y=dataA, x=x)
                 self.plot_rbdata.setData(y=dataB, x=x)
-                if (len(self.trigtimes)>1):
-                    self.plot_temp.setData(y=self.temps,x=(np.asarray(self.trigtimes)-self.trigtimes[0])/1000)
-                # start, finish = fr.getRbWindow(dataB[0:120000])
+                if (len(self.trigtimes) > 1):
+                    self.plot_temp.setData(y=np.asarray(self.temps)[-self.spinBox_plotwindowsize.value():],
+                                           x=(np.asarray(self.trigtimes)[-self.spinBox_plotwindowsize.value():] - self.trigtimes[0]) / 1000)
+                    # start, finish = fr.getRbWindow(dataB[0:120000])
 
-
-
-        # if not len(self.trigtimes) % 30:
-        #    self.plot_rbdata.getViewBox().setXRange(start, finish)
-
-    @pyqtSlot(np.ndarray, np.ndarray, float, float, float)
-    def fitdata(self, dataA, dataB, trigtime, temp, looptime):
-        # t = time.time()
+        # if not len(self.trigtimes) % 4:
+        #     plotime = np.asarray(self.trigtimes) / 1000
+        #     plotime -= plotime[0]
+        #     self.plot_temp.setData(y=np.asarray(self.temps)[-self.spinBox_plotwindowsize.value():], x=plotime[-self.spinBox_plotwindowsize.value():])
 
         if (len(self.trigtimes) > 1):
-            self.lcdNumber_dateRate.display(1 / np.mean(np.diff(self.trigtimes[-100:]) / 1000))
+            self.lcdNumber_dateRate.display(1 / np.mean(np.diff(list(
+                itertools.islice(self.trigtimes, max([len(self.trigtimes) - 100, 0]),
+                                 len(self.trigtimes)))) / 1000))
             # self.lcdNumber_triggerCount.display(1 / np.mean(self.looptimes[-20:]))
             self.lcdNumber_triggerCount.display(len(self.looptimes))
 
-        try:
-            newRBcentre =  fr.fitRblines(x, dataB)
-            etalondata = signal.sosfiltfilt(sos, dataA)
 
-            etaloncentre = fr.fitEtalon(x[0:20000:1], etalondata[0:20000:1],30)
-            if len(self.rbcentres) > 2 and (abs(np.mean(newRBcentre)-np.mean(self.rbcentres[-1]))>20 or abs(etaloncentre-self.etaloncentres[-1])>20):
-                raise RuntimeError
+
+            # if not len(self.trigtimes) % 30:
+            #    self.plot_rbdata.getViewBox().setXRange(start, finish)
+
+    @pyqtSlot(np.ndarray, np.ndarray, float, float, float)
+    def fitdata(self, dataA, dataB, trigtime, temp, looptime):
+        if self.checkBox_fitting.isChecked():
+            # t = time.time()
+            if self.checkBox_fitting.isChecked() and (not dataA.max() < 1200 or dataB.min() > -300):
+                fittingwork = fitdatathread(dataA, dataB, trigtime)
+                fittingwork.dataReady.connect(self.plotfitdata)
+                #fittingwork.dataReady.connect(self.PIDaction)
+                fittingwork.start()
+                fittingwork.wait()
             else:
-                self.etaloncentres.append(etaloncentre)
-                self.rbcentres.append(newRBcentre)
-                self.trigtimes.append(trigtime)
-                self.temps.append(temp)
-                self.looptimes.append(looptime)
+                print('skipped 252')
 
-        except RuntimeError:
+    def PIDaction(self, averageEtalon, averageRb, trigtime,delay):
+
+        if self.checkBox_PIDonoff.isChecked() and not len(self.trigtimes) % delay:
+            if self.pid.firsttime:
+                self.pid.prevtm = trigtime / 1000
+                self.pid.setpoint = 0 #etaloncentre - np.mean(newRBcentre)
+                self.pid.firsttime = False
+            else:
+                #averageEtalon=np.mean(np.diff(list(itertools.islice(self.etaloncentres, max([len(self.etaloncentres) - delay, 0]),len(self.etaloncentres)))))
+                #averageRb = np.mean(np.diff(list(itertools.islice(self.rbcentres, max([len(self.etaloncentres) - delay, 0]),len(self.etaloncentres)))))
+
+                error = self.pid.setpoint - (averageEtalon - averageRb).mean()/1000
+                print(error)
+                newtemp = self.pid.update(error, trigtime / 1000) + self.doubleSpinBox_tempsetpoint.value()
+                self.doubleSpinBox_tempsetpoint.setValue(np.asscalar(newtemp))
+                #self.tempChanged(newtemp)
+        else:
             pass
 
-        plotime = np.asarray(self.trigtimes) / 1000
-        plotime -= plotime[0]
+    def updatePIDparameters(self, float):
+        self.pid.setKpid(self.doubleSpinBox_P.value(), self.doubleSpinBox_I.value(), self.doubleSpinBox_D.value())
 
-        if len(self.rbcentres) > 2:
-            # rbplotdata = savgol_filter(np.mean(np.asarray(self.rbcentres), axis=1),
-            #                            self.spinBox_smoothingWindow.value(), 3)
-            rbplotdata = np.mean(np.asarray(self.rbcentres), axis=1)
-            rbplotdata -= rbplotdata[0]
+    def trimdatadeques(self):
+        if not len(self.trigtimesfitted) % 8000 and len(self.trigtimesfitted) > 12000:
+            with open('data-RbEt.csv', 'a', encoding='utf-8') as file:
+                for i in range(0, 8000):
+                    file.write("%f, %f, %f, %f, %f, " % tuple(self.rbcentres.popleft()) +
+                               "%f, %f\n" % (self.etaloncentres.popleft(), self.trigtimesfitted.popleft()))
 
-            etalonplotdata = np.asarray(self.etaloncentres)
-            etalonplotdata-=etalonplotdata[0]
+        if not len(self.trigtimes) % 8000 and len(self.trigtimes) > 12000:
+            with open('data-temp.csv', 'a', encoding='utf-8') as file:
+                for i in range(0, 8000):
+                    file.write("%f, %f\n" % (self.trigtimes.popleft(), self.temps.popleft()))
 
-            error = rbplotdata-etalonplotdata
-            if 0:
-                error = fr.nm2ms((error - error[0:31].mean()) * 1.9881681277862515e-06)
-            else:
-                pass
-                #error -= error[0:31].mean()
+    def plotfitdata(self, etaloncentre, newRBcentre, trigtime):
+        if len(self.rbcentres) > 2 and (abs(np.mean(newRBcentre) - np.mean(self.rbcentres[-1])) > 500
+                                        or abs(etaloncentre - self.etaloncentres[-1]) > 500):
+            print('275')
+            return
+        else:
+            self.etaloncentres.append(etaloncentre)
+            self.rbcentres.append(newRBcentre)
+            self.trigtimesfitted.append(trigtime)
 
-            self.errorValueReady.emit(error[-30:].mean())
+        self.trimdatadeques()
 
-            if self.checkBox_etalonsmoothing.isChecked():
-                smootherror, veltimes, binnumber = \
-                    binned_statistic(plotime, error,
-                                     bins=np.arange(plotime.min(), plotime.max(),
-                                                    self.doubleSpinBox_etalonbinsize.value()))
-                veltimes = veltimes[1:]
-            else:
-                smootherror = error
-                veltimes = plotime
+        try:
+            if len(self.trigtimesfitted) > 1:
+                plotimefitted = np.asarray(self.trigtimesfitted) / 1000
+                #plotimefitted -= plotimefitted[0]
+                plotimefitted -= np.asarray(self.trigtimes[0]) / 1000
 
-            if not len(self.trigtimes) % 4:
-                self.plot_rawtimeseries1.setData(y=rbplotdata - rbplotdata.mean(), x=plotime)
-                self.plot_rawtimeseries2.setData(y=etalonplotdata - etalonplotdata.mean(), x=plotime)
-                self.plot_velocitytimeseries.setData(y=smootherror, x=veltimes)
-                self.plot_temp.setData(y=np.asarray(self.temps), x=plotime)
+                # rbplotdata = savgol_filter(np.mean(np.asarray(self.rbcentres), axis=1),
+                #                         self.spinBox_smoothingWindow.value(), 3)
 
-        if len(self.rbcentres) > 101 and not len(self.trigtimes) % 2:
-            # self.lcdNumber_rbStd.display(sigma_clip(rbplotdata,sigma=4).std())
-            # self.lcdNumber_etalonStd.display(sigma_clip(etalonplotdata,sigma=4).std())
-            self.lcdNumber_rbStd.display(rbplotdata.std() * 1.9881681277862515e-06)
-            self.lcdNumber_etalonStd.display(smootherror.std())
-            # print(1/(time.time() - t))
+
+                rbplotdata = np.mean(np.asarray(self.rbcentres), axis=1)
+
+                etalonplotdata = np.asarray(self.etaloncentres)
+
+                error = rbplotdata - etalonplotdata
+                # rbplotdata -= rbplotdata[0]
+                # etalonplotdata -= etalonplotdata[0]
+
+                delay = 60
+                self.PIDaction(etalonplotdata[-delay:], rbplotdata[-delay:], trigtime, delay)
+
+                win=self.spinBox_plotwindowsize.value()
+                if self.checkBox_etalonsmoothing.isChecked():
+                    smootherror, veltimes, binnumber = \
+                        binned_statistic(plotimefitted[-win:], error[-win:],
+                                         bins=np.arange(plotimefitted[-win:].min(), plotimefitted[-win:].max(),
+                                                        self.doubleSpinBox_etalonbinsize.value()))
+                    veltimes = veltimes[1:]
+                else:
+                    smootherror = error[-win:]
+                    veltimes = plotimefitted[-win:]
+
+
+
+                if not len(self.trigtimesfitted) % self.spinBox_updaterate.value():
+                    self.plot_rawtimeseries1.setData(y=rbplotdata[-win:] - rbplotdata[-win:].mean(), x=plotimefitted[-win:])
+                    self.plot_rawtimeseries2.setData(y=etalonplotdata[-win:] - etalonplotdata[-win:].mean(), x=plotimefitted[-win:])
+                    self.plot_velocitytimeseries.setData(y=smootherror, x=veltimes)
+
+                if len(self.rbcentres) > 1 and not len(self.trigtimes) % self.spinBox_updaterate.value()*4:
+                    # self.lcdNumber_rbStd.display(sigma_clip(rbplotdata,sigma=4).std())
+                    # self.lcdNumber_etalonStd.display(sigma_clip(etalonplotdata,sigma=4).std())
+                    self.lcdNumber_rbStd.display(fr.nm2ms(rbplotdata[-win:].std() * samplescale))
+                    self.lcdNumber_etalonStd.display(fr.nm2ms(smootherror.std() * samplescale))
+
+                if (len(self.trigtimesfitted) > 1):
+                    self.lcdNumber_fitrate.display(1 / np.mean(np.diff(list(
+                        itertools.islice(self.trigtimesfitted, max([len(self.trigtimesfitted) - 100, 0]),
+                                         len(self.trigtimesfitted)))) / 1000))
+
+        except IndexError:
+            self.etaloncentres.pop()
+            self.rbcentres.pop()
+            self.trigtimesfitted.pop()
 
     def saveTimeSeries(self):
         scipy.io.savemat('data.mat',
@@ -344,7 +367,8 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
                                 'etalondata': self.etaloncentres,
                                 'trigtimes': self.trigtimes,
                                 'temps': self.temps,
-                                'looptimes': self.looptimes
+                                'looptimes': self.looptimes,
+                                'trigtimesfitted': self.trigtimesfitted
                                 })
 
     @pyqtSlot()
@@ -364,13 +388,82 @@ class RbMoniterProgram(QtWidgets.QMainWindow):
         self.exec = remoteexecutor([sshcmd, "-t", "-t", "root@10.66.101.121", "~/RpRbDAQ/UDPStreamer"])
 
         self.startUdpRecevierThread()
-    # @pyqtSlot()
-    # def toggleSwitch(self):
-    #     if self.radioButton_RbMointer.isChecked():
-    #         self.fs.setStateTwo()
-    #     else:
-    #         self.fs.setStateOne()
 
+
+class getDataRecevierWorker(QtCore.QObject):
+    finished = pyqtSignal()
+    dataReady = pyqtSignal(np.ndarray, np.ndarray, float, float, float)
+    errorOccured = pyqtSignal()
+    tempset = pyqtSignal(float)
+
+    def __init__(self, ur, tempinit):
+        QtCore.QObject.__init__(self)
+        self.ur = ur
+        self.CurrentTemp = tempinit
+        self._mutex = QtCore.QMutex()
+        self.running = True
+
+    @pyqtSlot()
+    def dataRecvLoop(self):
+        print("dataRecvLoop start\n")
+        while self.running:
+            try:
+                #print(self.CurrentTemp)
+                t = time.time()
+                self.ur.doALL(self.CurrentTemp)
+                elapsed = time.time() - t
+                if self.ur.dataA.size == aquisitionsize and self.ur.dataB.size == aquisitionsize:
+                    self.dataReady.emit(self.ur.dataA, self.ur.dataB, self.ur.timetrigger, self.ur.temp, elapsed)
+                else:
+                    print('skipped 393')
+            except socket.timeout:
+                print("sock timeout error\n")
+                self.errorOccured.emit()
+                break
+
+        print("getDataRecevierWorker while loop ended")
+        self.finished.emit()
+
+    @pyqtSlot(float)
+    def tempchangedinGUI(self, temp):
+        self._mutex.lock()
+        self.CurrentTemp = temp
+        self._mutex.unlock()
+
+    @pyqtSlot()
+    def stop(self):
+        self._mutex.lock()
+        self.running=False
+        self._mutex.unlock()
+
+
+class fitdatathread(QtCore.QThread):
+    dataReady = pyqtSignal(float, np.ndarray, float)
+
+    def __init__(self, dataA, dataB, trigtime):
+        QtCore.QThread.__init__(self)
+        self.dataA = dataA
+        self.dataB = dataB
+        self.trigtime = trigtime
+
+    def __del__(self):
+        self.wait()
+
+    def run(self):
+        try:
+            newRBcentre = fr.fitRblines(x, self.dataB)
+
+            etalondata = signal.sosfiltfilt(sos, self.dataA)
+            etaloncentre = fr.fitEtalon(x, etalondata, 10)
+
+            self.dataReady.emit(etaloncentre, newRBcentre, self.trigtime)
+        except (ValueError, TypeError, RuntimeError) as err:
+            print("fit error({0}):".format(err))
+            # raise err
+            pass
+        finally:
+            pass
+            # self.terminate()
 
 
 def main():
@@ -379,7 +472,6 @@ def main():
     win.show()
     win.raise_()
     sys.exit(app.exec_())
-
 
 if __name__ == '__main__':
     main()

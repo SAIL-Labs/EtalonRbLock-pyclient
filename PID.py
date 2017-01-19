@@ -1,5 +1,5 @@
 class PID:
-    def __init__(self,kp=0.001,ki=0,kd=0,starttime=0):
+    def __init__(self,kp=0,ki=0,kd=0,starttime=0):
         self.kp = kp
         self.ki = ki
         self.kd = kd
@@ -10,6 +10,9 @@ class PID:
 
         self.prevtm = starttime
         self.prev_err = 0
+        self.setpoint=0
+
+        self.firsttime = True
 
     def update(self,error,mesurmentTime):
         dt = mesurmentTime - self.prevtm    # get delta t
@@ -23,9 +26,15 @@ class PID:
 
         self.prevtm = mesurmentTime         # save curret time for next iter
         self.prev_err = error               # save t-1 error
+        print(self.Ci)
+        print(self.Cp)
+        print(self.Cd)
         return self.Cp + (self.ki * self.Ci) + (self.kd * self.Cd)
 
     def setKpid(self,kp,ki,kd):
         self.kp = kp
         self.ki = ki
         self.kd = kd
+        self.Cp = 0
+        self.Ci = 0
+        self.Cd = 0

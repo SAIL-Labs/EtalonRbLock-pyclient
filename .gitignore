@@ -3,3 +3,7 @@ build
 dist
 etalonpeak.csv
 lookatdata.m
+*.csv
+*.mat
+data
+pid tunning.png
