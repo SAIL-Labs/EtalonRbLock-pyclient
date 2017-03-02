@@ -14,7 +14,7 @@ from numba import jit
 from scipy.constants import c
 from scipy.optimize import leastsq,least_squares
 from scipy.signal import savgol_filter
-import peakutils
+#import peakutils
 import peakdetect
 
 if 'TCPIPreceiver' not in sys.modules:
@@ -30,12 +30,24 @@ pRbstart = [0.1, 0.1, 0, 135, 10000, -1000]
 
 
 def nm2ms(wavelengthshift, lam0=780.2):
+    """ Converts a wavelength (nm) difference to velocity (m/s)
+
+    :param wavelengthshift: differential wavelength change/shift
+    :param lam0: reference wavelength for velocity conversion
+    :return:  velocity
+    """
+
     ms = (c * wavelengthshift * (2 * lam0 + wavelengthshift)) \
          / (2 * lam0 ** 2 + 2 * lam0 * wavelengthshift + wavelengthshift ** 2)
     return ms
 
 
 def fitwavelengthscale(centers):
+    """
+
+    :param centers:
+    :return:
+    """
     peaksep_wave = np.array([0, 0.000466750976329422, 0.000307404373188547, 0.000148057835076543,
                              3.66646723932718e-05, - 0.000122681755101439, - 0.000393421157355078])
     # peaksep_freq = np.array([0, - 229.851800000000, - 151.381500000000, - 72.9112000000000,
@@ -47,6 +59,12 @@ def fitwavelengthscale(centers):
 
 @jit(cache=True, nopython=True)
 def lorentzian(x, p):
+    """
+
+    :param x:
+    :param p:
+    :return:
+    """
     numerator = (p[0] ** 2)
     denominator = (x - (p[1])) ** 2 + p[0] ** 2
     y = p[2] * (numerator / denominator)
@@ -55,17 +73,36 @@ def lorentzian(x, p):
 
 @jit(cache=True, nopython=True)
 def square(x):
+    """
+
+    :param x:
+    :return:
+    """
     return x ** 2
 
 
 @jit(cache=True, nopython=True)
 def LorenPart(x, ab, c, f):
+    """
+
+    :param x:
+    :param ab:
+    :param c:
+    :param f:
+    :return:
+    """
     y = (1 / (1 + 4 * ((x - c) / f) ** 2)) ** ab
     return y
 
 
 @jit(cache=True, nopython=True)
 def AsymLorentzian(xdata, p):
+    """
+
+    :param xdata:
+    :param p:
+    :return:
+    """
     a = p[0]
     b = p[1]
     cen = p[2]
@@ -91,18 +128,40 @@ def AsymLorentzian(xdata, p):
 
 @jit(cache=True, nopython=True)
 def residualsEtalon(p, y, x):
+    """
+
+    :param p:
+    :param y:
+    :param x:
+    :return:
+    """
+
     err = y - AsymLorentzian(x, p)
     return err
 
 
 @jit(cache=True, nopython=True)
 def residualsRb(p, y, x):
+    """
+
+    :param p:
+    :param y:
+    :param x:
+    :return:
+    """
     err = y - AsymLorentzian(x, p)
     return err
 
 
 #@jit(cache=True)
 def fitEtalon(x, data, dec=1):
+    """
+
+    :param x:
+    :param data:
+    :param dec:
+    :return:
+    """
     centrestart = data.argmax()
     if centrestart==0:
         raise RuntimeError
@@ -131,6 +190,12 @@ def fitEtalon(x, data, dec=1):
 
 #@jit(cache=True, nopython=True)
 def getRbWindow(rbdata, left=1):
+    """
+
+    :param rbdata:
+    :param left:
+    :return:
+    """
     if left:
         start = np.argmax(rbdata) - 160000/2//decimation
     else:
@@ -141,6 +206,12 @@ def getRbWindow(rbdata, left=1):
 
 
 def fitRblines(x, datab):
+    """
+
+    :param x:
+    :param datab:
+    :return:
+    """
     global pRbstart
     #datab = savgol_filter(datab, 101, 3)
 

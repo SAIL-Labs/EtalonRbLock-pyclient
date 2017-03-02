@@ -45,7 +45,8 @@ else:
 
 
 localIP = socket.gethostbyname(socket.gethostname())  # socket.getfqdn()
-rpIP = socket.gethostbyname('redpitaya1.sail-laboratories.com')
+#rpIP = socket.gethostbyname('redpitaya1.sail-laboratories.com')
+rpIP = '192.168.1.100'
 
 class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter):
     rbcentres = deque()
@@ -67,13 +68,16 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter):
 
         self.ur = TCPIPreceiver.TCPIPreceiver(12345, 12346, 12347, aquisitionsize, rpIP)
         if sys.platform == 'win32':
-            sshcmd = "\"C:\Program Files (x86)\PuTTY\plink.exe\" -pw notroot -ssh "
-            subprocess.run(sshcmd + "root@" + rpIP + " killall UDPStreamer")
+            sshcmd = "\"C:\Program Files\PuTTY\plink.exe\" -pw notroot -ssh "
+            subprocess.run(sshcmd + "root@" + rpIP + " killall EtalonRbLock-server ")
 
-            self.exec = remoteexecutor(sshcmd + "-t " + "-t " + "root@" + rpIP + " ~/RpRbDAQ/UDPStreamer -i " + localIP + " -m " + "1 " + "-a " + str(aquisitionsize))
+            cmd = sshcmd + "-t " + "-t " + "root@" + rpIP + " ~/EtalonRbLock-server/EtalonRbLock-server  -i " + localIP + " -m " + "1 " + "-a " + str(aquisitionsize)
+            print(cmd)
+            self.exec = remoteexecutor(cmd)
+
         else:
-            subprocess.run(["ssh", "root@" + rpIP, "killall UDPStreamer"])
-            sshcmd = ["ssh", "-t", "-t", "root@" + rpIP, "~/RpRbDAQ/UDPStreamer", "-i", localIP, "-m", "1","-a",str(aquisitionsize)]
+            subprocess.run(["ssh", "root@" + rpIP, "killall EtalonRbLock-server "])
+            sshcmd = ["ssh", "-t", "-t", "root@" + rpIP, "~/EtalonRbLock-server/EtalonRbLock-server ", "-i", localIP, "-m", "1","-a",str(aquisitionsize)]
             print(" ".join(sshcmd))
             self.exec = remoteexecutor(sshcmd)
 
@@ -148,7 +152,7 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter):
                 self.ur.sendEndResponse()
                 print("closing ssh\n")
                 self.exec.close()
-                subprocess.run(["ssh", "root@" + rpIP, "killall UDPStreamer"])
+                subprocess.run(["ssh", "root@" + rpIP, "killall EtalonRbLock-server "])
                 print("done\n")
             finally:
                 event.accept()
@@ -384,8 +388,8 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter):
         else:
             sshcmd = "ssh"
 
-        subprocess.run(["ssh", "root@10.66.101.121", "killall UDPStreamer"])
-        self.exec = remoteexecutor([sshcmd, "-t", "-t", "root@10.66.101.121", "~/RpRbDAQ/UDPStreamer"])
+        subprocess.run(["ssh", "root@10.66.101.121", "killall EtalonRbLock-server "])
+        self.exec = remoteexecutor([sshcmd, "-t", "-t", "root@10.66.101.121", "~/EtalonRbLock-server/EtalonRbLock-server "])
 
         self.startUdpRecevierThread()
 

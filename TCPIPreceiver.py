@@ -1,4 +1,4 @@
-# updreceiver.py
+# TCPIPreceiver.py
 import socket   #for sockets
 #from array import array
 import numpy as np
@@ -21,8 +21,22 @@ class Singleton(type):
 
 
 class TCPIPreceiver(metaclass=Singleton):
+    """ TCPIPreceiver is an object that manages the TCP/IP communication with the RedPitaya
+     based data acquisition.
+
+        :param PORT_A: TCP/IP port that RP ADC 1 data (Etalon signal)
+        :param PORT_B: TCP/IP port that RP ADC 1 data (Etalon signal)
+        :param PORT_ACK: TCP/IP used for two comunications, sends continue (Ack), stop (end), and
+         sets PID temp or direct drive current.
+        :param AQUSITIONSIZE: Size of the data acquisition per trigger
+        :param RED_IP: IP address of the RP. Must be on local network to handle bandwidth.
+    """
     pass
     def __init__(self, PORT_A, PORT_B, PORT_ACK, AQUSITIONSIZE, RED_IP):
+        """ TCPIPreceiver constructor
+
+        Description above.
+        """
         self.PORT_A = PORT_A
         self.PORT_B = PORT_B
         self.PORT_ACK = PORT_ACK
@@ -39,6 +53,15 @@ class TCPIPreceiver(metaclass=Singleton):
         self.temp = np.empty((1,1),dtype = '<f')
 
     def recv_into(self,arr,port):
+        """ Wrapper to connect to server and receive ADC data in numpy.ndarray "arr".
+
+        Establishes connection with RP server.
+        Done by looping over array using a memory view, and filling in chunks with socket.recv_into.
+
+        :param arr: empty numpy.ndarray defined in constructor (np.empty((self.AQUSITIONSIZE), dtype='i2')).
+        :param port: port to communicate on (with A or B, depending on channel wanted).
+        :return: Number of bytes received (should be 2*AQUSITIONSIZE)
+        """
         s=self.setupSocket(port, 3 * self.AQUSITIONSIZE)
 
         view = memoryview(arr).cast('B')
@@ -54,6 +77,12 @@ class TCPIPreceiver(metaclass=Singleton):
         return bytesrecv
 
     def setupSocket(self,PORT,RCVBUFSIZE):
+        """ establishes a connection to RP server on specified port returning socket.
+
+        :param PORT: TCP/IP communication port
+        :param RCVBUFSIZE: TCP/IP communication buffer size.
+        :return: socket connected to RP on port PORT.
+        """
         # try:
         s=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, RCVBUFSIZE)
@@ -66,6 +95,11 @@ class TCPIPreceiver(metaclass=Singleton):
         return s
 
     def sendAckResponse(self, msg):
+        """ sends message msg to RP server on communications port.
+
+        :param msg: Message to send RP server.
+        :return: nothing.
+        """
         s=self.setupSocket(self.PORT_ACK, 1024)
 
         MESSAGE = "%s %f\n" % ('Ack', msg)
@@ -74,6 +108,10 @@ class TCPIPreceiver(metaclass=Singleton):
         #self.receiveDACData()
 
     def sendEndResponse(self):
+        """ Send message "END" to RP server on communications port. Terminate RP server.
+
+        :return: nothing.
+        """
         s = self.setupSocket(self.PORT_ACK, 1024)
         MESSAGE = "%s %f\n" % ('END', float(10.0))
         s.send(str.encode(MESSAGE))
@@ -81,6 +119,10 @@ class TCPIPreceiver(metaclass=Singleton):
         #self.receiveDACData()
 
     def receiveDACData(self):
+        """ receive ADC dat from the RP data
+
+        :return: number of bytes received from both channels
+        """
         #print('receiveDACData 1')
         self.dataA = np.empty((self.AQUSITIONSIZE), dtype='i2')
 
@@ -91,23 +133,29 @@ class TCPIPreceiver(metaclass=Singleton):
 
         NumBytedataB = self.recv_into(self.dataB,self.PORT_B)
 
-        #print('receiveDACData 3')
-        #dataAout=array('i',np.nditer(self.dataA,flags=['buffered']))
-        #dataBout=array('i',np.nditer(self.dataB,flags=['buffered']))
-        #dataBout=array.array('d',np.nditer(dataB))
-        return (NumBytedataA,NumBytedataB)
+        return NumBytedataA, NumBytedataB
 
     def recieveTrigerTimeAndTemp(self):
+        """ receive trigger time of data acquisition  and current Etalon temp on communication channel
+
+        :return:  temperature and trigger time
+        """
         s = self.setupSocket(self.PORT_ACK, 1024)
         ttrig = s.recv_into(self.timetrigger, )
         ttemp = s.recv_into(self.temp, 4)
         s.close()
-        return (ttemp, ttrig)
+        return ttemp, ttrig
 
     def doALL(self,tempset=8.00):
-        self.sendAckResponse(tempset)
-        self.receiveDACData()
-        self.recieveTrigerTimeAndTemp()
+        """ execute sendAckResponse, receiveDACData and recieveTrigerTimeAndTemp in order.
+
+        :param tempset: PID temp or direct drive current value as float
+        :return:
+        """
+
+        self.sendAckResponse(tempset)  # get data from next trigger
+        self.receiveDACData()  # receives the ADC data
+        self.recieveTrigerTimeAndTemp()  # get trigger time and temp of acquisition.
 
 if __name__ == "__main__":
     print("Nothing to do. Use in external script.")

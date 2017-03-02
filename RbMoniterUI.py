@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file '/Users/chrisbetters/Dropbox/github/postdoc_code/PhotonicComb/python/RbMoniter.ui'
+# Form implementation generated from reading ui file '/home/chrisbetters/Dropbox/github/postdoc_code/PhotonicComb/EtalonRbLock-pyclient/RbMoniter.ui'
 #
 # Created by: PyQt5 UI code generator 5.6
 #
@@ -312,18 +312,11 @@ class Ui_RbMoniter(object):
         self.tabWidget1.addTab(self.tabWidgetPage2, "")
         self.horizontalLayout.addWidget(self.tabWidget1, 0, QtCore.Qt.AlignTop)
         RbMoniter.setCentralWidget(self.centralwidget)
-        self.menubar = QtWidgets.QMenuBar(RbMoniter)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1293, 22))
-        self.menubar.setObjectName("menubar")
-        self.menuRrr = QtWidgets.QMenu(self.menubar)
-        self.menuRrr.setObjectName("menuRrr")
-        RbMoniter.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(RbMoniter)
         self.statusbar.setObjectName("statusbar")
         RbMoniter.setStatusBar(self.statusbar)
         self.actionAbout = QtWidgets.QAction(RbMoniter)
         self.actionAbout.setObjectName("actionAbout")
-        self.menubar.addAction(self.menuRrr.menuAction())
 
         self.retranslateUi(RbMoniter)
         self.tabWidget.setCurrentIndex(0)
@@ -332,7 +325,7 @@ class Ui_RbMoniter(object):
 
     def retranslateUi(self, RbMoniter):
         _translate = QtCore.QCoreApplication.translate
-        RbMoniter.setWindowTitle(_translate("RbMoniter", "MainWindow"))
+        RbMoniter.setWindowTitle(_translate("RbMoniter", "SAIL Photonic Comb Rb Lock/Moniter"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_fullMoniter), _translate("RbMoniter", "Full Moniter"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_diagnostic), _translate("RbMoniter", "Diagnostic"))
         self.groupBox.setTitle(_translate("RbMoniter", "Data Aquisition"))
@@ -365,7 +358,6 @@ class Ui_RbMoniter(object):
         self.label_13.setText(_translate("RbMoniter", "Local IP"))
         self.label_14.setText(_translate("RbMoniter", "RP IP"))
         self.tabWidget1.setTabText(self.tabWidget1.indexOf(self.tabWidgetPage2), _translate("RbMoniter", "Settings"))
-        self.menuRrr.setTitle(_translate("RbMoniter", "rrr"))
         self.actionAbout.setText(_translate("RbMoniter", "About"))
 
 from pyqtgraph import GraphicsLayoutWidget, PlotWidget
