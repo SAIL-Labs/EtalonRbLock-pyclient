@@ -1,2 +1,0 @@
-RedPitaya Enviroment Setup
-**************************
