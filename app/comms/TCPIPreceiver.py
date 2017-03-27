@@ -20,7 +20,9 @@ class Singleton(type):
             return self.__instance
 
 
-class TCPIPreceiver(metaclass=Singleton):
+from app import erlBase
+
+class TCPIPreceiver(erlBase, metaclass=Singleton):
     """ TCPIPreceiver is an object that manages the TCP/IP communication with the RedPitaya
      based data acquisition.
 
@@ -37,11 +39,15 @@ class TCPIPreceiver(metaclass=Singleton):
 
         Description above.
         """
+        erlBase.__init__(self)
+
         self.PORT_A = PORT_A
         self.PORT_B = PORT_B
         self.PORT_ACK = PORT_ACK
         self.AQUSITIONSIZE = AQUSITIONSIZE
         self.RED_IP = RED_IP
+
+        self.logger.info('Using Port A: %d, Port B: %d, Port Ack: %d with IP %s', PORT_A, PORT_B,PORT_ACK, RED_IP)
 
         #self.sockA = self.setupSocket(self.PORT_A, 3*self.AQUSITIONSIZE)
         #self.sockB = self.setupSocket(self.PORT_B, 3*self.AQUSITIONSIZE)
@@ -152,7 +158,7 @@ class TCPIPreceiver(metaclass=Singleton):
         :param tempset: PID temp or direct drive current value as float
         :return:
         """
-
+        #self.logger.debug('Temp Set is: {}'.format(tempset))
         self.sendAckResponse(tempset)  # get data from next trigger
         self.receiveDACData()  # receives the ADC data
         self.recieveTrigerTimeAndTemp()  # get trigger time and temp of acquisition.
