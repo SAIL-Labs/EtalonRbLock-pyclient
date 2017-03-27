@@ -13,21 +13,23 @@ import numpy as np
 from numba import jit
 from scipy.constants import c
 from scipy.optimize import leastsq,least_squares
+from scipy import optimize
 from scipy.signal import savgol_filter
-#import peakutils
-import peakdetect
+import peakutils
+eps = np.finfo(float).eps
 
-if 'TCPIPreceiver' not in sys.modules:
-    import TCPIPreceiver
+from . import peakdetect
+from ..comms.TCPIPreceiver import TCPIPreceiver
+from .. import erlBase
 
-from configVariables import *
+erlb=erlBase()
 
 # from remoteexecutor import remoteexecutor
 
 SHOULDPLOT_RB = 0
 SHOULDPLOT_etalon = 0
 pRbstart = [0.1, 0.1, 0, 135, 10000, -1000]
-
+#from matplotlib import pyplot as plt
 
 def nm2ms(wavelengthshift, lam0=780.2):
     """ Converts a wavelength (nm) difference to velocity (m/s)
@@ -167,14 +169,17 @@ def fitEtalon(x, data, dec=1):
         raise RuntimeError
     #data = savgol_filter(data, 1001, 3)
     data=data/data.max()
-    p = np.array([3, 3, centrestart, 0.75*aquisitionsize, 1, 0.1])
+    p = np.array([3, 3, centrestart, 0.75*erlb.config.aquisitionsize, 1, 0.1])
     #print(p)
     # pbest = leastsq(residualsEtalon, p, args=(data[centrestart-5000:centrestart+5000:dec], x[centrestart-5000:centrestart+5000:dec]), full_output=True)
     # best_parameters = pbest[0]
 
     #pbest = least_squares(residualsEtalon, p, args=(data[centrestart-8000:centrestart+8000:dec], x[centrestart - 8000:centrestart + 5000:dec]), method='lm')
-    pbest = least_squares(residualsEtalon, p, args=(data[::dec], x[::dec]), method='lm')
-    best_parameters = pbest.x
+    if 0:
+        pbest = least_squares(residualsEtalon, p, args=(data[::dec], x[::dec]), method='lm')
+        best_parameters = pbest.x
+    else:
+        best_parameters, pcov = optimize.curve_fit(AsymLorentzianAlt, x[::dec], data[::dec], p)
 
 
     #print(best_parameters)
@@ -188,7 +193,7 @@ def fitEtalon(x, data, dec=1):
     return best_parameters[2]
 
 
-#@jit(cache=True, nopython=True)
+@jit(cache=True, nopython=True)
 def getRbWindow(rbdata, left=1):
     """
 
@@ -196,13 +201,15 @@ def getRbWindow(rbdata, left=1):
     :param left:
     :return:
     """
-    if left:
-        start = np.argmax(rbdata) - 160000/2//decimation
-    else:
-        start = np.argmax(rbdata) - 256000//decimation
-    finish = start + 160000//decimation
+    centre = min(peakutils.indexes(rbdata, thres=0.6,min_dist=1000))
 
-    return start, finish
+    if left:
+        start = centre - 160000/2//erlb.config.decimation
+    else:
+        start = np.argmax(rbdata) - 256000//erlb.config.decimation
+    finish = start + 160000//erlb.config.decimation
+
+    return int(start), int(finish)
 
 
 def fitRblines(x, datab):
@@ -217,14 +224,14 @@ def fitRblines(x, datab):
 
     datab=(datab / datab.mean() - 1)
 
-    start, finish = getRbWindow(datab[1:1152000//decimation])
+    start, finish = getRbWindow(datab[1:1152000//erlb.config.decimation])
 
     datab = datab[start:finish:1]
     x = x[start:finish:1]
 
     # defining the 'background' part of the spectrum #
-    ind_bg_low = (x > start) & (x < start + 25600//decimation)
-    ind_bg_high = (x > finish - 25600//decimation) & (x < finish)
+    ind_bg_low = (x >= start) & (x < (start + 25600//erlb.config.decimation))
+    ind_bg_high = (x > finish - 51200//erlb.config.decimation) & (x <= finish)
 
     x_bg = np.concatenate((x[ind_bg_low], x[ind_bg_high]))
     b_bg = np.concatenate((datab[ind_bg_low], datab[ind_bg_high]))
@@ -246,14 +253,14 @@ def fitRblines(x, datab):
 
     # try:
     if 1:
-        indexes = peakutils.indexes(savgol_filter(b_bg_corr, 11, 3), thres=0.2, min_dist=6400//decimation)
-        locs = peakutils.interpolate(x,b_bg_corr,ind=indexes,width=2560//decimation)
-
+        indexes = peakutils.indexes(savgol_filter(b_bg_corr, 11, 3), thres=0.10, min_dist=6400//erlb.config.decimation)
+        locs = peakutils.interpolate(x,b_bg_corr, ind=indexes, width=2560//erlb.config.decimation, func=loren_fit)
+        #locs = x[indexes]
         pks=b_bg_corr[indexes]
         return locs
 
     else:
-        pkslocs = peakdetect.peakdetect(b_bg_corr, xsubwin, delta=100, lookahead=60)
+        pkslocs = peakdetect.peakdetect(b_bg_corr, erlb.config.xsubwin, delta=100, lookahead=60)
         locs, pks = zip(*pkslocs[0])
         # pks, locs = (list(t) for t in zip(*sorted(zip(pks, locs), reverse=True)))
         sort_index = np.argsort(locs)
@@ -263,7 +270,7 @@ def fitRblines(x, datab):
         pks = pks[0:6]
 
     if SHOULDPLOT_RB:
-        plt.plot(xsubwin, b_bg_corr, locs, pks, 'go')
+        plt.plot(erlb.config.xsubwin, b_bg_corr, locs, pks, 'go')
     # except ValueError:
     #     print("error rbfitting")
     #     print(locs)
@@ -275,7 +282,7 @@ def fitRblines(x, datab):
         centres = np.empty(6)
         for index, loc in enumerate(locs):
             if 0:
-                win = (xsubwin > loc - winsize[index]) & (xsubwin < loc + winsize[index])
+                win = (erlb.config.xsubwin > loc - winsize[index]) & (erlb.config.xsubwin < loc + winsize[index])
 
                 # p = [100,loc,1000]  # [hwhm, peak center, intensity] # lor
                 # p = [0.1, 0.1, loc, 135, 10000, -1000]  # asymlor
@@ -283,7 +290,7 @@ def fitRblines(x, datab):
                 p[2] = loc
 
                 # optimization #
-                pbest = leastsq(residualsRb, p, args=(b_bg_corr[win], xsubwin[win]), full_output=1)
+                pbest = leastsq(residualsRb, p, args=(b_bg_corr[win], erlb.config.xsubwin[win]), full_output=1)
                 best_parameters = pbest[0]
                 centres[index] = best_parameters[2]
                 pRbstart = best_parameters
@@ -302,73 +309,99 @@ def fitRblines(x, datab):
 
     return centres
 
+@jit(cache=True, nopython=True)
+def gaussian(x, ampl, center, dev, d):
+    '''Computes the Gaussian function.
 
-if __name__ == '__main__':
-    from matplotlib import pyplot as plt
-    from scipy import signal
-    from peakutils import plot as pkplot
-    import socket
+    Parameters
+    ----------
+    x : number
+        Point to evaluate the Gaussian for.
+    a : number
+        Amplitude.
+    b : number
+        Center.
+    c : number
+        Width.
 
-    sos = np.asarray(
-        [[5.80953794660816e-06, 1.16190758932163e-05, 5.80953794660816e-06, 1, -1.99516198526679, 0.995185223418579],
-         [0.00240740227660535, 0.00240740227660535, 0, 1, -0.995185195446789, 0]])
-    rpIP = socket.gethostbyname('redpitaya1.sail-laboratories.com')
+    Returns
+    -------
+    float
+        Value of the specified Gaussian at *x*
+    '''
+    return ampl * np.exp(-(x - float(center)) ** 2 / (2.0 * dev ** 2 + eps)) + d
 
-    SHOULDPLOT_RB = 0
-    SHOULDPLOT_etalon = 0
-    if SHOULDPLOT_RB or SHOULDPLOT_etalon:
-        plt.ion()
-    ur = TCPIPreceiver.TCPIPreceiver(12345, 12346, 12347, 20000, rpIP)
-    rbcentres = []
-    etaloncentres = []
-    scale = []
+def gaussian_fit(x, y, center_only=True):
+    '''Performs a Gaussian fitting of the specified data.
 
-    x = np.arange(20000)
-    ur.sendAckResponse(starttemp)
-    time.sleep(0.2)
-    ur.receiveDACData()
-    ur.recieveTrigerTimeAndTemp()
+    Parameters
+    ----------
+    x : ndarray
+        Data on the x axis.
+    y : ndarray
+        Data on the y axis.
+    center_only: bool
+        If True, returns only the center of the Gaussian for `interpolate` compatibility
 
-    # rbcentres = np.empty((6,1))
-    t = time.time()
-    #plt.clf()
-    for i in range(0, 200):
-        try:
-            ur.doALL(starttemp)
-            # b=(ur.dataB-ur.dataB[320000])*-1.0
+    Returns
+    -------
+    ndarray or float
+        If center_only is `False`, returns the parameters of the Gaussian that fits the specified data
+        If center_only is `True`, returns the center position of the Gaussian
+    '''
+    initial = [np.max(y), x[np.argmax(y)], (x[1] - x[0]) * 10, 0]
+    params, pcov = optimize.curve_fit(gaussian, x, y, initial)
+    #plt.plot(x, y, x, gaussian(x,params[0],params[1],params[2],params[3]))
+    if center_only:
+        return params[1]
+    else:
+        return params
 
-            # start = np.argmin(ur.dataB[0:230000])- 19000
+def loren_fit(x, y, center_only=True):
+    '''Performs a Gaussian fitting of the specified data.
 
-            #start, finish = getRbWindow(ur.dataB)
-            newRBcentre = fitRblines(x, ur.dataB)
-            etalondata=signal.sosfiltfilt(sos, ur.dataA)
-            etaloncentre = fitEtalon(x, etalondata,30)
+    Parameters
+    ----------
+    x : ndarray
+        Data on the x axis.
+    y : ndarray
+        Data on the y axis.
+    center_only: bool
+        If True, returns only the center of the Gaussian for `interpolate` compatibility
 
-            scale.append(fitwavelengthscale(newRBcentre))
-            rbcentres.append(newRBcentre)
-            etaloncentres.append(etaloncentre)
+    Returns
+    -------
+    ndarray or float
+        If center_only is `False`, returns the parameters of the Gaussian that fits the specified data
+        If center_only is `True`, returns the center position of the Gaussian
+    '''
+    initial = [1, 1, x[np.argmax(y)], (x[1] - x[0]) * 30, np.max(y), 0]
+    params, pcov = optimize.curve_fit(AsymLorentzianAlt, x, y, initial)
+    #plt.plot(x, y, x, gaussian(x,params[0],params[1],params[2],params[3]))
+    if center_only:
+        return params[2]
+    else:
+        return params
 
-        except:
-            pass
+@jit(cache=True, nopython=True)
+def AsymLorentzianAlt(xdata, a, b, cen, wid, Amp, offset):
+    """
 
-    elapsed = time.time() - t
+    :param xdata:
+    :param p:
+    :return:
+    """
+    LHS = (xdata <= cen)
+    RHS = (xdata > cen)
+    y = np.zeros(xdata.size)
+    # fit=lorentzian(xdata,[a,cen,wid])
 
-    print((i + 1) / elapsed)
+    y[LHS] = LorenPart(xdata[LHS], a, cen, wid)
+    y[RHS] = LorenPart(xdata[RHS], b, cen, wid)
 
-    plt.plot(range(0, len(etaloncentres)), (etaloncentres), range(0, len(etaloncentres)),
-              np.mean(rbcentres, axis=1))
-    #plt.plot(range(0, len(etaloncentres)), (etaloncentres - np.mean(rbcentres, axis=1)))
+    #    plt.clf()
+    #    plt.plot(xdata,y)
+    #    plt.show()
 
-    # del(ur)
-#    errorsig = np.mean(rbcentres, axis=1) - etaloncentres
-#    plt.clf()
-#    plt.plot(etaloncentres - etaloncentres[0])
-#    plt.plot(np.mean(rbcentres - rbcentres[0], axis=1))
-#    # plt.plot(errorsig-errorsig[0])
-#    plt.show()
-# del ur
-# centrestart=150000
-#    a[ 2:21:2,:]
-
-
-
+    y = Amp * y + offset
+    return y
