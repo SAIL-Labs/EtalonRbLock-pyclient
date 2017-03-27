@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1293</width>
-    <height>1058</height>
+    <width>1750</width>
+    <height>1276</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -30,7 +30,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="tab_fullRBLockMoniter">
        <attribute name="title">
@@ -38,10 +38,10 @@
        </attribute>
        <layout class="QGridLayout" name="gridLayout">
         <item row="3" column="0" colspan="2">
-         <widget class="PlotWidget" name="pw_temp"/>
+         <widget class="GraphicsLayoutWidget" name="glw_tempandcontrol"/>
         </item>
         <item row="2" column="0" colspan="2">
-         <widget class="PlotWidget" name="pw_velocitytimeseries"/>
+         <widget class="GraphicsLayoutWidget" name="glw_velocitytimeseries"/>
         </item>
         <item row="0" column="0">
          <widget class="PlotWidget" name="pw_etalondata"/>
@@ -98,6 +98,12 @@
         </item>
         <item row="2" column="1">
          <widget class="QLabel" name="label_mouseZoom">
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>12</height>
+           </size>
+          </property>
           <property name="text">
            <string>Mouse Zoom</string>
           </property>
@@ -113,12 +119,34 @@
           </property>
          </widget>
         </item>
-        <item row="1" column="0" rowspan="3">
-         <widget class="PlotWidget" name="pw_FullCCDImage">
+        <item row="4" column="1">
+         <spacer name="verticalSpacer_5">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeType">
+           <enum>QSizePolicy::MinimumExpanding</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item row="1" column="0" rowspan="4">
+         <widget class="ImageView" name="pw_FullCCDImage">
+          <property name="minimumSize">
+           <size>
+            <width>600</width>
+            <height>600</height>
+           </size>
+          </property>
           <property name="maximumSize">
            <size>
-            <width>16777215</width>
-            <height>16777215</height>
+            <width>1200</width>
+            <height>1200</height>
            </size>
           </property>
           <property name="baseSize">
@@ -128,19 +156,6 @@
            </size>
           </property>
          </widget>
-        </item>
-        <item row="4" column="1">
-         <spacer name="verticalSpacer">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>20</width>
-            <height>40</height>
-           </size>
-          </property>
-         </spacer>
         </item>
        </layout>
       </widget>
@@ -229,10 +244,30 @@
            <string>Data Aquisition</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_3">
-           <item row="8" column="0">
-            <widget class="QLabel" name="label_TempSetPoint">
+           <item row="11" column="0">
+            <widget class="QLabel" name="label_2">
              <property name="text">
-              <string>Temp Set Point</string>
+              <string>T/C Min</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="9" column="0">
+            <widget class="QLabel" name="label">
+             <property name="text">
+              <string>T/C Max</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="10" column="0">
+            <widget class="QLabel" name="label_MeSetPoint">
+             <property name="text">
+              <string>ME T/C Set Point</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -270,13 +305,13 @@
              </property>
             </widget>
            </item>
-           <item row="8" column="1">
-            <widget class="QDoubleSpinBox" name="doubleSpinBox_tempsetpoint">
+           <item row="10" column="1">
+            <widget class="QDoubleSpinBox" name="doubleSpinBox_mesetpoint">
              <property name="suffix">
               <string>°C</string>
              </property>
              <property name="decimals">
-              <number>4</number>
+              <number>6</number>
              </property>
              <property name="minimum">
               <double>-99.000000000000000</double>
@@ -332,16 +367,6 @@
             <widget class="QLabel" name="label_EtalonBinSize">
              <property name="text">
               <string>Etalon Bin Size</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="9" column="0">
-            <widget class="QLabel" name="label_plotwindowsize">
-             <property name="text">
-              <string>Plot Window Size</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -407,6 +432,36 @@
             </widget>
            </item>
            <item row="9" column="1">
+            <widget class="QDoubleSpinBox" name="doubleSpinBox_mesetpoint_max">
+             <property name="minimum">
+              <double>0.000000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>0.010000000000000</double>
+             </property>
+             <property name="value">
+              <double>0.000000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="11" column="1">
+            <widget class="QDoubleSpinBox" name="doubleSpinBox_mesetpoint_min">
+             <property name="singleStep">
+              <double>0.010000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="8" column="0">
+            <widget class="QLabel" name="label_plotwindowsize">
+             <property name="text">
+              <string>Plot Window Size</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="8" column="1">
             <widget class="QSpinBox" name="spinBox_plotwindowsize">
              <property name="minimum">
               <number>500</number>
@@ -466,6 +521,9 @@
              </property>
              <property name="text">
               <string>Std Etalon</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
              </property>
             </widget>
            </item>
@@ -534,6 +592,9 @@
              </property>
              <property name="text">
               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;right&quot;&gt;Trigger Cnt&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
              </property>
             </widget>
            </item>
@@ -622,6 +683,33 @@
              </property>
             </widget>
            </item>
+           <item row="1" column="2">
+            <widget class="QLabel" name="label_StdTemp">
+             <property name="font">
+              <font>
+               <pointsize>11</pointsize>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Temp Std</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="3">
+            <widget class="QLCDNumber" name="lcdNumber_tempStd">
+             <property name="frameShape">
+              <enum>QFrame::NoFrame</enum>
+             </property>
+             <property name="segmentStyle">
+              <enum>QLCDNumber::Flat</enum>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>
@@ -631,27 +719,37 @@
            <string>PID</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_6">
-           <item row="3" column="0">
-            <widget class="QLabel" name="label_D">
-             <property name="maximumSize">
-              <size>
-               <width>25</width>
-               <height>16777215</height>
-              </size>
-             </property>
+           <item row="2" column="2">
+            <widget class="QRadioButton" name="radioButton_PIDUseEtalon">
              <property name="text">
-              <string>D</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              <string>Use Etalon</string>
              </property>
             </widget>
            </item>
-           <item row="2" column="0">
+           <item row="7" column="1" colspan="2">
+            <widget class="QDoubleSpinBox" name="doubleSpinBox_I">
+             <property name="decimals">
+              <number>10</number>
+             </property>
+             <property name="minimum">
+              <double>-100000.000000000000000</double>
+             </property>
+             <property name="maximum">
+              <double>100000.000000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>0.000001000000000</double>
+             </property>
+             <property name="value">
+              <double>0.000900000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="0">
             <widget class="QLabel" name="label_I">
              <property name="maximumSize">
               <size>
-               <width>25</width>
+               <width>15</width>
                <height>16777215</height>
               </size>
              </property>
@@ -663,11 +761,27 @@
              </property>
             </widget>
            </item>
-           <item row="1" column="0">
+           <item row="8" column="0">
+            <widget class="QLabel" name="label_D">
+             <property name="maximumSize">
+              <size>
+               <width>15</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>D</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="0">
             <widget class="QLabel" name="label_P">
              <property name="maximumSize">
               <size>
-               <width>25</width>
+               <width>15</width>
                <height>16777215</height>
               </size>
              </property>
@@ -679,49 +793,68 @@
              </property>
             </widget>
            </item>
-           <item row="1" column="1">
+           <item row="2" column="1">
+            <widget class="QRadioButton" name="radioButton_PIDUseTemp">
+             <property name="text">
+              <string>Use Temp</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+             <property name="autoRepeat">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="1" colspan="2">
             <widget class="QDoubleSpinBox" name="doubleSpinBox_P">
              <property name="decimals">
-              <number>8</number>
+              <number>10</number>
              </property>
              <property name="minimum">
-              <double>-1.000000000000000</double>
+              <double>-100000.000000000000000</double>
              </property>
              <property name="maximum">
-              <double>1.000000000000000</double>
+              <double>100000.000000000000000</double>
              </property>
              <property name="singleStep">
               <double>0.000001000000000</double>
              </property>
              <property name="value">
-              <double>-0.010000000000000</double>
+              <double>3.000000000000000</double>
              </property>
             </widget>
            </item>
-           <item row="3" column="1">
-            <widget class="QDoubleSpinBox" name="doubleSpinBox_D">
-             <property name="decimals">
-              <number>8</number>
-             </property>
-             <property name="minimum">
-              <double>-99.000000000000000</double>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QDoubleSpinBox" name="doubleSpinBox_I">
-             <property name="decimals">
-              <number>8</number>
-             </property>
-             <property name="minimum">
-              <double>-99.000000000000000</double>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
+           <item row="0" column="0" colspan="3">
             <widget class="QCheckBox" name="checkBox_PIDonoff">
              <property name="text">
               <string>Enabled</string>
+             </property>
+            </widget>
+           </item>
+           <item row="8" column="1" colspan="2">
+            <widget class="QDoubleSpinBox" name="doubleSpinBox_D">
+             <property name="decimals">
+              <number>10</number>
+             </property>
+             <property name="minimum">
+              <double>-100000.000000000000000</double>
+             </property>
+             <property name="maximum">
+              <double>100000.000000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>0.000001000000000</double>
+             </property>
+             <property name="value">
+              <double>0.400000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="9" column="0" colspan="3">
+            <widget class="QPushButton" name="pushButton_resetPID">
+             <property name="text">
+              <string>Reset</string>
              </property>
             </widget>
            </item>
@@ -754,7 +887,7 @@
               <bool>false</bool>
              </property>
              <property name="currentIndex">
-              <number>1</number>
+              <number>0</number>
              </property>
              <widget class="QWidget" name="tab_Exposure">
               <attribute name="title">
@@ -1025,6 +1158,11 @@
   </customwidget>
   <customwidget>
    <class>GraphicsLayoutWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>pyqtgraph</header>
+  </customwidget>
+  <customwidget>
+   <class>ImageView</class>
    <extends>QGraphicsView</extends>
    <header>pyqtgraph</header>
   </customwidget>
