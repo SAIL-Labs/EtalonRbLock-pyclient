@@ -193,7 +193,7 @@ def fitEtalon(x, data, dec=1):
     return best_parameters[2]
 
 
-#@jit(cache=True, nopython=True)
+@jit(cache=True, nopython=True)
 def getRbWindow(rbdata, left=1):
     """
 
@@ -309,6 +309,7 @@ def fitRblines(x, datab):
 
     return centres
 
+@jit(cache=True, nopython=True)
 def gaussian(x, ampl, center, dev, d):
     '''Computes the Gaussian function.
 
