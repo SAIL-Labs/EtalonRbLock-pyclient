@@ -7,3 +7,5 @@ lookatdata.m
 *.mat
 data
 pid tunning.png
+docs
+*.zip
