@@ -34,6 +34,7 @@ if 'darwin' in sys.platform:
     from app.camera.simulator import Camera
 else:
     from app.camera.fli import Camera
+from app.workers import CameraExposureThread, fitdatathread, getDataReceiverWorker
 
 
 class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
@@ -487,134 +488,6 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
         self.logger.debug('Camera: Exposure set to %d ms',int(exposuretime*1000))
         self.cam._cam.set_exposure(int(exposuretime*1000))
 
-
-class getDataRecevierWorker(QtCore.QObject,erlBase):
-    finished = pyqtSignal()
-    dataReady = pyqtSignal(np.ndarray, np.ndarray, float, float, float)
-    errorOccured = pyqtSignal()
-    tempset = pyqtSignal(float)
-
-    def __init__(self, ur, tempinit):
-        QtCore.QObject.__init__(self)
-        erlBase.__init__(self)
-        self.ur = ur
-        self.CurrentTemp = tempinit
-        self._mutex = QtCore.QMutex()
-        self.running = True
-
-    @pyqtSlot()
-    def dataRecvLoop(self):
-        self.logger.debug("dataRecvLoop start\n")
-        while self.running:
-            try:
-                #print(self.CurrentTemp)
-                t = time.time()
-                self.ur.doALL(self.CurrentTemp)
-                elapsed = time.time() - t
-                if self.ur.dataA.size == self.config.aquisitionsize and self.ur.dataB.size == self.config.aquisitionsize:
-                    self.dataReady.emit(self.ur.dataA, self.ur.dataB, self.ur.timetrigger, self.ur.temp, elapsed)
-                else:
-                    self.logger.warning('skipped 393')
-            except socket.timeout:
-                self.logger.debug("sock timeout error\n")
-                self.errorOccured.emit()
-                break
-
-        self.logger.debug("getDataRecevierWorker while loop ended")
-        self.finished.emit()
-
-    @pyqtSlot(float)
-    def tempchangedinGUI(self, temp):
-        self._mutex.lock()
-        self.CurrentTemp = temp
-        self._mutex.unlock()
-
-    @pyqtSlot()
-    def stop(self):
-        self._mutex.lock()
-        self.running=False
-        self._mutex.unlock()
-
-
-class fitdatathread(QtCore.QThread,erlBase):
-    dataReady = pyqtSignal(float, np.ndarray, float)
-
-    def __init__(self, dataA, dataB, trigtime):
-        QtCore.QThread.__init__(self)
-        erlBase.__init__(self)
-        self.dataA = dataA
-        self.dataB = dataB
-        self.trigtime = trigtime
-
-    def __del__(self):
-        self.wait()
-
-    def run(self):
-        try:
-            newRBcentre = fr.fitRblines(self.x, self.dataB)
-
-            etalondata = signal.sosfiltfilt(self.config.sos, self.dataA)
-            #etalondata=self.dataA
-            etaloncentre = fr.fitEtalon(self.x, etalondata, 100)
-
-            self.dataReady.emit(etaloncentre, newRBcentre, self.trigtime)
-        except (ValueError, TypeError, RuntimeError) as err:
-            self.logger.error("fit error({0}):".format(err))
-            # raise err
-            pass
-        finally:
-            pass
-            # self.terminate()
-
-
-class CameraExposureThread(QtCore.QThread,erlBase):
-    dataReady = pyqtSignal(np.ndarray,Time, float, float, float)
-    finished = pyqtSignal()
-
-    def __init__(self, cam:Camera, continous:bool):
-        QtCore.QThread.__init__(self)
-        erlBase.__init__(self)
-        self.cam = cam
-        self._mutex = QtCore.QMutex()
-        self.continous = continous
-        self.temppressure=temppressure(self.config.arduinoport)
-
-    def __del__(self):
-        self.wait()
-
-    def run(self):
-        try:
-            if self.continous:
-                while self.continous:
-                    self.logger.debug('Camera: Take Exposure Start')
-                    tstart=Time.now()
-                    self.temppressure.getData()
-                    imdata = self.cam._cam.take_photo()
-                    self.dataReady.emit(imdata, tstart, self.temppressure.temp, self.temppressure.pressure, self.temppressure.hum)
-                    self.logger.debug('Camera: Take Exposure End')
-                    time.sleep(2.0)
-            else:
-                self.logger.debug('Camera: Take Exposure Start')
-                tstart = Time.now()
-                self.temppressure.getData()
-                imdata=self.cam._cam.take_photo()
-                self.dataReady.emit(imdata,tstart, self.temppressure.temp, self.temppressure.pressure, self.temppressure.hum)
-                self.logger.debug('Camera: Take Exposure End')
-
-        except (ValueError, TypeError, RuntimeError) as err:
-            self.logger.error("Camera: error({0}):".format(err))
-            # raise err
-            pass
-        finally:
-            self.logger.debug('Camera: Take Exposure Thread End')
-            self.finished.emit()
-            # self.terminate()
-
-    @pyqtSlot()
-    def stopContinous(self):
-        self._mutex.lock()
-        self.continous=False
-        self._mutex.unlock()
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
