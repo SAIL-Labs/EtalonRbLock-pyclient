@@ -128,5 +128,5 @@ class AbstractCamera(erlBase):
         except AttributeError:
             return "{} ({}) on {}".format(self.name, self.uid, self.port)
 
-    def save_image_to_fits(self, imagetime, imdata, filename, exposuretime):
+    def save_image_to_fits(self, imagetime, imdata, filename, exposuretime, temp, pressure, hum):
         raise NotImplementedError

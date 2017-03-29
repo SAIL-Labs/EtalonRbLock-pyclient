@@ -38,6 +38,10 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
     trigtimescontrol = deque()
     controlvalues = deque()
 
+    DataReceiverThread = []
+    dataReceivedWorker = []
+    exposurethread = []
+
     def __init__(self):
         super(RbMoniterProgram, self).__init__()
         erlBase.__init__(self)
@@ -66,11 +70,11 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
         self.ur.receiveDACData()
         self.ur.recieveTrigerTimeAndTemp()
 
-        self.startbutton.clicked.connect(self.startUdpRecevierThread)
+        self.startbutton.clicked.connect(self.start_data_receiver_thread)
         self.stopbutton.clicked.connect(self.stopUdpRecevierThread)
         self.pushButton_savedata.clicked.connect(self.saveTimeSeries)
         # self.pushButton_resetUDP.clicked.connect(self.restartRP)
-        self.pushButton_clearData.clicked.connect(self.clearData)
+        self.pushButton_clearData.clicked.connect(self.cleardata)
         self.pushButton_connectCamera.clicked.connect(self.setupCamera)
         self.pushButton_cameraStartExposure.clicked.connect(self.take_exposure)
 
@@ -86,26 +90,15 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
         self.pw_velocitytimeseries = self.glw_velocitytimeseries.addPlot()
         self.plot_velocitytimeseries = self.pw_velocitytimeseries.plot()
 
-        self.pw_temp = self.glw_tempandcontrol.addPlot(row=1,col=1)
+        self.pw_temp = self.glw_tempandcontrol.addPlot(row=1, col=1)
         self.plot_temp = self.pw_temp.plot()
-        self.pw_control = self.glw_tempandcontrol.addPlot(row=1,col=1)
+        self.pw_control = self.glw_tempandcontrol.addPlot(row=1, col=1)
         self.pw_control.showAxis('right')
         self.pw_control.hideAxis('left')
         self.pw_temp.showAxis('left')
         self.pw_temp.getAxis('right').setLabel('axis2', color='#0000ff')
-
         self.pw_control.setXLink(self.pw_temp)
         self.plot_control = self.pw_control.plot(pen=(0, 128, 0))
-
-
-        # p2 = pg.ViewBox()
-        # self.pw_temp.showAxis('right')
-        # self.pw_temp.scene().addItem(p2)
-        # self.pw_temp.getAxis('right').linkToView(p2)
-        # p2.setXLink(self.pw_temp)
-        # self.pw_temp.getAxis('right').setLabel('axis2', color='#0000ff')
-        # self.plot_control = pg.PlotCurveItem([], pen='b')
-        # p2.addItem(self.plot_control)
 
         self.pw_rawtimeseriesPlot.setXLink(self.pw_temp)
         self.pw_velocitytimeseries.setXLink(self.pw_temp)
@@ -141,7 +134,7 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
 
         self.logger.info("Started.")
 
-    def clearData(self):
+    def cleardata(self):
         self.rbcentres.clear()
         self.etaloncentres.clear()
         self.trigtimes.clear()
@@ -171,37 +164,38 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
         else:
             event.ignore()
 
-    def startUdpRecevierThread(self):
-        self.UdpRecevierThread = QtCore.QThread(self)
-        self.UdpRecevierThread.setTerminationEnabled(True)
-        self.worker = getDataReceiverWorker(self.ur, self.doubleSpinBox_mesetpoint.value())
+    def start_data_receiver_thread(self):
+        self.DataReceiverThread = QtCore.QThread(self)
+        self.DataReceiverThread.setTerminationEnabled(True)
+        self.dataReceivedWorker = getDataReceiverWorker(self.ur, self.doubleSpinBox_mesetpoint.value())
 
-        self.worker.moveToThread(self.UdpRecevierThread)
-        self.UdpRecevierThread.started.connect(self.worker.dataRecvLoop)
+        self.dataReceivedWorker.moveToThread(self.DataReceiverThread)
+        # noinspection PyUnresolvedReferences
+        self.DataReceiverThread.started.connect(self.dataReceivedWorker.dataRecvLoop)
         self.stopbutton.clicked.connect(self.stopClicked)
         self.doubleSpinBox_mesetpoint.valueChanged.connect(self.tempChanged)
-        self.worker.dataReady.connect(self.fitdata)
+        self.dataReceivedWorker.dataReady.connect(self.fitdata)
 
-        self.worker.finished.connect(self.UdpRecevierThread.quit)
-        self.worker.dataReady.connect(self.plotdata)
+        self.dataReceivedWorker.finished.connect(self.DataReceiverThread.quit)
+        self.dataReceivedWorker.dataReady.connect(self.plotData)
         # self.checkBox_fitting.stateChanged.connect(self.toggleFittingsConection)
         # if self.checkBox_fitting.isChecked():
         #    self.worker.dataReady.connect(self.fitdata)
 
-        self.worker.errorOccured.connect(self.restartRP)
+        self.dataReceivedWorker.errorOccured.connect(self.restartRP)
 
-        self.UdpRecevierThread.start()
+        self.DataReceiverThread.start()
 
         self.startbutton.setEnabled(False)
         self.stopbutton.setEnabled(True)
 
     @pyqtSlot()
     def stopClicked(self):
-        self.worker.stop()
+        self.dataReceivedWorker.stop()
 
     @pyqtSlot(float)
-    def tempChanged(self,temp):
-        self.worker.tempchangedinGUI(temp)
+    def tempChanged(self, temp):
+        self.dataReceivedWorker.tempchangedinGUI(temp)
 
     # def toggleFittingsConection(self):
     #     if self.checkBox_fitting.isChecked():
@@ -216,8 +210,8 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
     def stopUdpRecevierThread(self):
         # QtWidgets.QApplication.processEvents()
         if hasattr(self, 'UdpRecevierThread'):
-            if (self.UdpRecevierThread.isRunning()):
-                self.UdpRecevierThread.terminate()
+            if self.DataReceiverThread.isRunning():
+                self.DataReceiverThread.terminate()
                 # while not self.UdpRecevierThread.isFinished():
                 #    time.sleep(0.1)
 
@@ -225,15 +219,14 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
             self.startbutton.setEnabled(True)
             self.stopbutton.setEnabled(False)
 
-
-    @pyqtSlot(np.ndarray, np.ndarray, float, float, float, name="plotdata")
-    def plotdata(self, dataA, dataB, trigtime, temp, looptime):
+    @pyqtSlot(np.ndarray, np.ndarray, float, float, float, name="plotData")
+    def plotData(self, dataA, dataB, trigtime, temp, looptime):
         self.trimdatadeques()
         self.trigtimes.append(trigtime)
         self.temps.append(temp)
         self.looptimes.append(looptime)
 
-        if not len(self.trigtimes) % 1:  # update every spinBox_updaterate.value() samples
+        if not len(self.trigtimes) % 1:  # update every spinBox_update_rate.value() samples
             # print(trigtime,temp,1/looptime)
             if self.tabWidget_display.currentIndex() is 1:
                 self.DiagnosticRbPlot.setData(y=dataB, x=self.x)
@@ -241,33 +234,30 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
             else:
                 # t = time.time()
                 #
-                self.plot_etalondata.setData(y=dataA*self.config.samplescale_ms, x=self.x)
-                self.plot_rbdata.setData(y=dataB*self.config.samplescale_ms, x=self.x)
-                if (len(self.trigtimes) > 1):
+                self.plot_etalondata.setData(y=dataA * self.config.samplescale_ms, x=self.x)
+                self.plot_rbdata.setData(y=dataB * self.config.samplescale_ms, x=self.x)
+                if len(self.trigtimes) > 1:
                     self.plot_temp.setData(y=np.asarray(self.temps)[-self.spinBox_plotwindowsize.value():],
-                                           x=(np.asarray(self.trigtimes)[-self.spinBox_plotwindowsize.value():] - self.trigtimes[0]) / 1000)
+                                           x=(np.asarray(self.trigtimes)[-self.spinBox_plotwindowsize.value():] -
+                                              self.trigtimes[0]) / 1000)
                     # start, finish = fr.getRbWindow(dataB[0:120000])
 
         # if not len(self.trigtimes) % 4:
         #     plotime = np.asarray(self.trigtimes) / 1000
         #     plotime -= plotime[0]
-        #     self.plot_temp.setData(y=np.asarray(self.temps)[-self.spinBox_plotwindowsize.value():], x=plotime[-self.spinBox_plotwindowsize.value():])
+        #     self.plot_temp.setData(y=np.asarray(self.temps)[-self.spinBox_plotwindowsize.value():],
+        # x=plotime[-self.spinBox_plotwindowsize.value():])
 
-        if (len(self.trigtimes) > 1):
+        if len(self.trigtimes) > 1:
             self.lcdNumber_dateRate.display(1 / np.mean(np.diff(list(
                 itertools.islice(self.trigtimes, max([len(self.trigtimes) - 100, 0]),
                                  len(self.trigtimes)))) / 1000))
             # self.lcdNumber_triggerCount.display(1 / np.mean(self.looptimes[-20:]))
             self.lcdNumber_triggerCount.display(len(self.looptimes))
 
-            self.lcdNumber_tempStd.display(1000*np.std(list(
+            self.lcdNumber_tempStd.display(1000 * np.std(list(
                 itertools.islice(self.temps, max([len(self.temps) - 100, 0]),
                                  len(self.temps)))))
-
-
-
-            # if not len(self.trigtimes) % 30:
-            #    self.plot_rbdata.getViewBox().setXRange(start, finish)
 
     @pyqtSlot(np.ndarray, np.ndarray, float, float, float)
     def fitdata(self, dataA, dataB, trigtime, temp, looptime):
@@ -279,30 +269,32 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
                 fittingwork.start()
                 fittingwork.wait()
             else:
-                self.logger.debug('fitdata: Skipped with dataA.max {} and dataB.min {}'.format(dataA.max(),dataB.min()))
-        if not self.config.useExtPID: # not using external PID
+                self.logger.debug(
+                    'fitdata: Skipped with dataA.max {} and dataB.min {}'.format(dataA.max(), dataB.min()))
+        if not self.config.useExtPID:  # not using external PID
             if self.radioButton_PIDUseTemp.isChecked() and len(self.temps) > 0:
-                temps=np.asarray(self.temps)
+                temps = np.asarray(self.temps)
                 self.PIDaction((temps[-10:]).mean(), 3.44, trigtime, self.config.delay)
 
-
-    def PIDaction(self, input, setpoint, trigtime,delay):
+    def PIDaction(self, PIDinput, setPoint, trigtime, delay):
         if self.checkBox_PIDonoff.isChecked() and not len(self.trigtimes) % delay:
-            if self.pid.firsttime:
+            if self.pid.firstTime:
                 self.pid.prevtm = trigtime / 1000
 
-                self.pid.firsttime = False
-                self.pid.Ci=self.doubleSpinBox_mesetpoint.value() # initial value, i.e. don't set current/temp ot zero.
-                newMESetPoint=self.doubleSpinBox_mesetpoint.value() # initial value, i.e. don't set current ot zero.
+                self.pid.firstTime = False
+                self.pid.Ci = self.doubleSpinBox_mesetpoint.value()  # initial value, i.e. don't set current/temp ot
+                # zero.
+                newMESetPoint = self.doubleSpinBox_mesetpoint.value()  # initial value, i.e. don't set current ot zero.
             else:
-                newMESetPoint = self.pid.update(input, setpoint, trigtime / 1000)
+                newMESetPoint = self.pid.update(PIDinput, setPoint, trigtime / 1000)
 
             # if newtemp > self.doubleSpinBox_mesetpoint.maximum():
             #     newtemp = self.doubleSpinBox_mesetpoint.maximum()
             # if newtemp < self.doubleSpinBox_mesetpoint.minimum():
             #     newtemp = self.doubleSpinBox_mesetpoint.minimum()
 
-            #self.logger.debug("New MeSetPoint is {} from error {} and setpoint {}".format(newMESetPoint,input - setpoint,setpoint))
+            # self.logger.debug("New MeSetPoint is {} from error {} and setpoint {}".format(newMESetPoint,
+            # input - setpoint,setpoint))
             self.doubleSpinBox_mesetpoint.setValue(newMESetPoint)
         else:
             pass
@@ -314,7 +306,7 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
                                       x=(np.asarray(self.trigtimescontrol)[-self.spinBox_plotwindowsize.value():]
                                          - self.trigtimes[0]) / 1000)
 
-    def updatePIDparameters(self, float):
+    def updatePIDparameters(self, new_value):
         self.pid.setKpid(self.doubleSpinBox_P.value(), self.doubleSpinBox_I.value(), self.doubleSpinBox_D.value())
         self.logger.debug("PID changed")
 
@@ -324,27 +316,32 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
 
     def trimdatadeques(self):
         if not len(self.trigtimesfitted) % 4000 and len(self.trigtimesfitted) > 6000:
-            self.logger.info("Saving Data to {}".format(os.path.join(self.config.rbLockData_directory, 'data-RbEt.csv')))
-            with open(os.path.join(self.config.rbLockData_directory,'data-RbEt.csv'), 'a', encoding='utf-8') as file:
+            self.logger.info(
+                "Saving Data to {}".format(os.path.join(self.config.rbLockData_directory, 'data-RbEt.csv')))
+            with open(os.path.join(self.config.rbLockData_directory, 'data-RbEt.csv'), 'a', encoding='utf-8') as file:
                 for i in range(0, 4000):
                     file.write("%f, %f, %f, %f, %f, " % tuple(self.rbcentres.popleft()) +
                                "%f, %f\n" % (self.etaloncentres.popleft(), self.trigtimesfitted.popleft()))
 
         if not len(self.trigtimes) % 4000 and len(self.trigtimes) > 6000:
-            self.logger.info("Saving Data to {}".format(os.path.join(self.config.rbLockData_directory,'data-temp.csv')))
-            with open(os.path.join(self.config.rbLockData_directory,'data-temp.csv'), 'a', encoding='utf-8') as file:
+            self.logger.info(
+                "Saving Data to {}".format(os.path.join(self.config.rbLockData_directory, 'data-temp.csv')))
+            with open(os.path.join(self.config.rbLockData_directory, 'data-temp.csv'), 'a', encoding='utf-8') as file:
                 for i in range(0, 4000):
-                    file.write("%f, %f, %f\n" % (self.trigtimes.popleft(), self.temps.popleft(),self.looptimes.popleft()))
+                    file.write(
+                        "%f, %f, %f\n" % (self.trigtimes.popleft(), self.temps.popleft(), self.looptimes.popleft()))
 
         if not len(self.trigtimescontrol) % 4000 and len(self.trigtimescontrol) > 6000:
-            self.logger.info("Saving Data to {}".format(os.path.join(self.config.rbLockData_directory, 'data-control.csv')))
-            with open(os.path.join(self.config.rbLockData_directory,'data-control.csv'), 'a', encoding='utf-8') as file:
+            self.logger.info(
+                "Saving Data to {}".format(os.path.join(self.config.rbLockData_directory, 'data-control.csv')))
+            with open(os.path.join(self.config.rbLockData_directory, 'data-control.csv'), 'a',
+                      encoding='utf-8') as file:
                 for i in range(0, 400):
                     file.write("%f, %f\n" % (self.trigtimescontrol.popleft(), self.controlvalues.popleft()))
 
     def plotfitdata(self, etaloncentre, newRBcentre, trigtime):
-        if 0: #len(self.rbcentres) > 2 and (abs(np.mean(newRBcentre) - np.mean(self.rbcentres[-1])) > 500
-             #                           or abs(etaloncentre - self.etaloncentres[-1]) > 500):
+        if 0:  # len(self.rbcentres) > 2 and (abs(np.mean(newRBcentre) - np.mean(self.rbcentres[-1])) > 500
+            #                           or abs(etaloncentre - self.etaloncentres[-1]) > 500):
             print('275')
             return
         else:
@@ -371,9 +368,9 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
 
                 delay = self.config.delay
                 if self.radioButton_PIDUseEtalon.isChecked():
-                    self.PIDaction((error[-60:]*self.config.degperms).mean(), 0, trigtime, delay)
+                    self.PIDaction((error[-60:] * self.config.degperms).mean(), 0, trigtime, delay)
 
-                win=self.spinBox_plotwindowsize.value()
+                win = self.spinBox_plotwindowsize.value()
                 if self.checkBox_etalonsmoothing.isChecked():
                     smootherror, veltimes, binnumber = \
                         binned_statistic(plotimefitted[-win:], error[-win:],
@@ -384,19 +381,20 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
                     smootherror = error[-win:]
                     veltimes = plotimefitted[-win:]
 
-
                 if not len(self.trigtimesfitted) % self.spinBox_updaterate.value():
-                    self.plot_rawtimeseries1.setData(y=rbplotdata[-win:] - rbplotdata[-win:].mean(), x=plotimefitted[-win:])
-                    self.plot_rawtimeseries2.setData(y=etalonplotdata[-win:] - etalonplotdata[-win:].mean(), x=plotimefitted[-win:])
+                    self.plot_rawtimeseries1.setData(y=rbplotdata[-win:] - rbplotdata[-win:].mean(),
+                                                     x=plotimefitted[-win:])
+                    self.plot_rawtimeseries2.setData(y=etalonplotdata[-win:] - etalonplotdata[-win:].mean(),
+                                                     x=plotimefitted[-win:])
                     self.plot_velocitytimeseries.setData(y=smootherror, x=veltimes)
 
-                if len(self.rbcentres) > 1 and not len(self.trigtimes) % self.spinBox_updaterate.value()*4:
+                if len(self.rbcentres) > 1 and not len(self.trigtimes) % self.spinBox_updaterate.value() * 4:
                     # self.lcdNumber_rbStd.display(sigma_clip(rbplotdata,sigma=4).std())
                     # self.lcdNumber_etalonStd.display(sigma_clip(etalonplotdata,sigma=4).std())
                     self.lcdNumber_rbStd.display(rbplotdata[-win:].std())
                     self.lcdNumber_etalonStd.display(smootherror.std())
 
-                if (len(self.trigtimesfitted) > 1):
+                if len(self.trigtimesfitted) > 1:
                     self.lcdNumber_fitrate.display(1 / np.mean(np.diff(list(
                         itertools.islice(self.trigtimesfitted, max([len(self.trigtimesfitted) - 100, 0]),
                                          len(self.trigtimesfitted)))) / 1000))
@@ -407,7 +405,7 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
             self.trigtimesfitted.pop()
 
     def saveTimeSeries(self):
-        scipy.io.savemat(os.path.join(self.config.rbLockData_directory,'data.mat'),
+        scipy.io.savemat(os.path.join(self.config.rbLockData_directory, 'data.mat'),
                          mdict={'rbdata': self.rbcentres,
                                 'etalondata': self.etaloncentres,
                                 'trigtimes': self.trigtimes,
@@ -418,33 +416,19 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
 
     @pyqtSlot()
     def restartRP(self):
-
-        self.stopUdpRecevierThread()
-
-        del (self.ur)
-        # self.ur=[]
-        self.ur = TCPIPreceiver(12345, 12346, 12347, self.config.aquisitionsize, "10.66.101.121")
-        if sys.platform == 'win32':
-            sshcmd = "C:\Program Files (x86)\PuTTY\plink.exe -pw notroot -ssh"
-        else:
-            sshcmd = "ssh"
-
-        subprocess.run(["ssh", "root@10.66.101.121", "killall EtalonRbLock-server "])
-        self.exec = remoteexecutor([sshcmd, "-t", "-t", "root@10.66.101.121", "~/EtalonRbLock-server/EtalonRbLock-server "])
-
-        self.startUdpRecevierThread()
+        raise NotImplementedError
 
     def setupCamera(self):
         self.cam = Camera()
         self.pushButton_connectCamera.setDisabled(True)
         self.pushButton_DisconnectCamera.setEnabled(True)
-        #self.pushButton_CoolerToggle.setEnabled(True)
+        # self.pushButton_CoolerToggle.setEnabled(True)
         self.pushButton_CoolerToggle.setChecked(True)
         self.pushButton_cameraStartExposure.setEnabled(True)
         self.doubleSpinBox_ExposureTime.valueChanged.connect(self.setcamexposure)
 
     def take_exposure(self):
-        self.exposurethread = CameraExposureThread(self.cam,self.radioButton_continuousExposures.isChecked())
+        self.exposurethread = CameraExposureThread(self.cam, self.radioButton_continuousExposures.isChecked())
         self.exposurethread.dataReady.connect(self.plotCCDimage)
         self.exposurethread.finished.connect(self.exposurethread.quit)
 
@@ -454,7 +438,7 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
 
         self.exposurethread.start()
         self.logger.debug('Camera: Take Exposure Thread Started')
-        #self.exposurethread.wait()
+        # self.exposurethread.wait()
 
     @pyqtSlot()
     def stopExposureClicked(self):
@@ -462,8 +446,8 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
         self.exposurethread.stopContinous()
         self.pushButton_cameraStopExposure.setEnabled(False)
 
-    @pyqtSlot(np.ndarray,Time)
-    def plotCCDimage(self,imdata,tstart,temp,pressure,hum):
+    @pyqtSlot(np.ndarray, Time)
+    def plotCCDimage(self, imdata, tstart, temp, pressure, hum):
         self.logger.info("Image Data Received")
         self.pw_FullCCDImage.setImage(imdata)
         if self.checkBox_saveCameraFile.isChecked():
@@ -475,9 +459,9 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
                                         temp=temp, pressure=pressure, hum=hum)
 
     @pyqtSlot(float)
-    def setcamexposure(self,exposuretime):
-        self.logger.debug('Camera: Exposure set to %d ms',int(exposuretime*1000))
-        self.cam._cam.set_exposure(int(exposuretime*1000))
+    def setcamexposure(self, exposuretime):
+        self.logger.debug('Camera: Exposure set to %d ms', int(exposuretime * 1000))
+        self.cam.setCCD_exposure(int(exposuretime * 1000))
 
 
 def main():
@@ -486,6 +470,7 @@ def main():
     win.show()
     win.raise_()
     sys.exit(app.exec_())
+
 
 if __name__ == '__main__':
     main()

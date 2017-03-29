@@ -1,10 +1,12 @@
-import FLI
-from .camera import AbstractCamera
-from astropy.io import fits
 import os
 
-class Camera(AbstractCamera):
+import FLI
+from astropy.io import fits
 
+from .camera import AbstractCamera
+
+
+class Camera(AbstractCamera):
     _cam = None
 
     def __init__(self,
@@ -20,7 +22,7 @@ class Camera(AbstractCamera):
             self.CCD_set_point = set_point
             self.logger.info('\t\t\t {} initialised'.format(self))
 
-    def connect(self,setpoint=None):
+    def connect(self, setpoint=None):
         cams = FLI.camera.USBCamera.find_devices()
 
         try:
@@ -28,10 +30,10 @@ class Camera(AbstractCamera):
         except IndexError as err:
             self.logger.error('Could not connect to {}!'.format(self.name))
             return
-            #raise err
+            # raise err
 
         self.logger.debug("{} connected".format(self.name))
-        self._connected=True
+        self._connected = True
 
         self._info = self._cam.get_info()
         self._serial_number = self._info['serial_number']
@@ -52,14 +54,24 @@ class Camera(AbstractCamera):
 
     @property
     def CCD_set_point(self):
-        return self._cam.get_temperature()
+        return self.CCD_set_point
+
+    @property
+    def CCD_exposure(self):
+        return self.CCD_exposure
+
+    @CCD_exposure.setter
+    def CCD_exposure(self, exposure_length):
+        self._cam.set_exposure(exposure_length)
+        self.CCD_exposure = exposure_length
 
     @CCD_set_point.setter
     def CCD_set_point(self, set_point):
         self.logger.debug("Setting {} cooling set point to {}".format(self.name, set_point))
         self._cam.set_temperature(set_point)
+        self.CCD_set_point = set_point
 
-    def save_image_to_fits(self,imagetime,imdata,filename,exposuretime,temp,pressure,hum):
+    def save_image_to_fits(self, imagetime, imdata, filename, exposuretime, temp, pressure, hum):
         header = fits.Header()
         header.set('INSTRUME', self.uid)
         header.set('DATE-OBS', imagetime.fits)
@@ -81,10 +93,3 @@ class Camera(AbstractCamera):
             os.makedirs(os.path.dirname(filename), mode=0o766, exist_ok=True)
         hdu.writeto(filename)
         self.logger.debug('Image written to {}'.format(filename))
-
-
-
-
-
-
-

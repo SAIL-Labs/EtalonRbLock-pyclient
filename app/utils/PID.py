@@ -18,7 +18,7 @@ class PID(erlBase):
         self.prev_err = 0
         self.prev_input = 0
 
-        self.firsttime = True
+        self.firstTime = True
 
         self.maxout = 1.0
         self.minout = 0.2
