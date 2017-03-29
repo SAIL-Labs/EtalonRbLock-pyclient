@@ -8,7 +8,6 @@ Created on Fri Aug 19 14:11:52 2016
 
 import itertools
 import os
-import socket
 import subprocess
 import sys
 import time
@@ -17,23 +16,15 @@ from collections import deque
 import numpy as np
 import scipy.io
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtCore import pyqtSignal, pyqtSlot
+from PyQt5.QtCore import pyqtSlot
 from astropy.time import Time
-from scipy import signal
 from scipy.stats import binned_statistic
 
-import app.utils.RBfitting as fr
 from app import erlBase
 from app.RbMoniterUI import Ui_RbMoniter
-from app.comms.TCPIPreceiver import TCPIPreceiver
-from app.comms.remoteexecutor import remoteexecutor
-from app.utils.PID import PID
-from app.utils.bme280read import bme280 as temppressure
-
-if 'darwin' in sys.platform:
-    from app.camera.simulator import Camera
-else:
-    from app.camera.fli import Camera
+from app.camera import Camera
+from app.comms import TCPIPreceiver, remoteexecutor
+from app.utils import PID
 from app.workers import CameraExposureThread, fitdatathread, getDataReceiverWorker
 
 
@@ -52,7 +43,7 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
         erlBase.__init__(self)
 
         self.setupUi(self)
-        #self.showMaximized()
+        # self.showMaximized()
         # uic.loadUi(os.path.join(bundle_dir, 'RbMoniter.ui'), self)
         self.cam = None
 
@@ -183,7 +174,7 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
     def startUdpRecevierThread(self):
         self.UdpRecevierThread = QtCore.QThread(self)
         self.UdpRecevierThread.setTerminationEnabled(True)
-        self.worker = getDataRecevierWorker(self.ur, self.doubleSpinBox_mesetpoint.value())
+        self.worker = getDataReceiverWorker(self.ur, self.doubleSpinBox_mesetpoint.value())
 
         self.worker.moveToThread(self.UdpRecevierThread)
         self.UdpRecevierThread.started.connect(self.worker.dataRecvLoop)

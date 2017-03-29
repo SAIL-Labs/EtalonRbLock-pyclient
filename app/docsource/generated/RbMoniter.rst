@@ -26,7 +26,7 @@ RbMoniter
       Ui_RbMoniter
       deque
       fitdatathread
-      getDataRecevierWorker
+      getDataReceiverWorker
       pyqtSignal
       remoteexecutor
    
