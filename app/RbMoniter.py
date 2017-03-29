@@ -59,26 +59,9 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
         self.lineEdit_localIP.setText(str(self.config.localIP))
 
         self.ur = TCPIPreceiver(12345, 12346, 12347, self.config.aquisitionsize, self.config.rpIP)
-        if sys.platform == 'win32':
-            sshcmd = "\"C:\Program Files\PuTTY\plink.exe\" -pw notroot -ssh "
-            subprocess.run(sshcmd + "root@" + self.config.rpIP + " killall EtalonRbLock-server ")
 
-            cmd = sshcmd + "-t " + "-t " + "root@" + self.config.rpIP +\
-                  " ~/EtalonRbLock-server/EtalonRbLock-server  " \
-                  "-i " + self.config.localIP +\
-                  " -m " + str(self.config.useExtPID) + \
-                  " -a " + str(self.config.aquisitionsize)
-            self.logger.debug(cmd)
-            self.exec = remoteexecutor(cmd)
-
-        else:
-            subprocess.run(["ssh", "root@" + self.config.rpIP, "killall EtalonRbLock-server "])
-            sshcmd = ["ssh", "-t", "-t", "root@" + self.config.rpIP, "~/EtalonRbLock-server/EtalonRbLock-server ",
-                      "-i", self.config.localIP,
-                      "-m", str(self.config.useExtPID),
-                      "-a", str(self.config.aquisitionsize)]
-            self.logger.debug(" ".join(sshcmd))
-            self.exec = remoteexecutor(sshcmd)
+        self.exec = remoteexecutor(self.config.rpIP)
+        self.exec.startserver(self.config.localIP, self.config.useExtPID, self.config.aquisitionsize)
 
         if 'darwin' in sys.platform:
             self.logger.info('Running \'caffeinate\' on MacOSX to prevent the system from sleeping')
@@ -190,9 +173,6 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
             try:
                 self.stopUdpRecevierThread()
                 self.ur.sendEndResponse()
-                self.logger.debug("closing ssh\n")
-                self.exec.close()
-                subprocess.run(["ssh", "root@" + self.config.rpIP, "killall EtalonRbLock-server "])
                 self.logger.info("done\n")
             finally:
                 event.accept()
@@ -309,7 +289,7 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
             else:
                 self.logger.debug('fitdata: Skipped with dataA.max {} and dataB.min {}'.format(dataA.max(),dataB.min()))
         if not self.config.useExtPID: # not using external PID
-            if self.radioButton_PIDUseTemp.isChecked():
+            if self.radioButton_PIDUseTemp.isChecked() and len(self.temps) > 0:
                 temps=np.asarray(self.temps)
                 self.PIDaction((temps[-10:]).mean(), 3.44, trigtime, self.config.delay)
 
@@ -332,12 +312,10 @@ class RbMoniterProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
 
             #self.logger.debug("New MeSetPoint is {} from error {} and setpoint {}".format(newMESetPoint,input - setpoint,setpoint))
             self.doubleSpinBox_mesetpoint.setValue(newMESetPoint)
-
-
         else:
             pass
 
-        if  len(self.trigtimes) > 1:
+        if len(self.trigtimes) > 1:
             self.trigtimescontrol.append(trigtime)
             self.controlvalues.append(self.doubleSpinBox_mesetpoint.value())
             self.plot_control.setData(y=np.asarray(self.controlvalues)[-self.spinBox_plotwindowsize.value():],
