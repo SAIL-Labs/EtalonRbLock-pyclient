@@ -11,7 +11,7 @@ class Camera(AbstractCamera):
 
     def __init__(self,
                  name='FLI M8300',
-                 set_point=0.0,
+                 set_point=10,
                  *args, **kwargs):
         kwargs['readout_time'] = 2.4
         kwargs['file_extension'] = 'fits'

@@ -22,7 +22,7 @@ RbMoniter
    .. autosummary::
    
       PID
-      RbMoniterProgram
+      RbMonitorProgram
       Ui_RbMoniter
       deque
       fitdatathread

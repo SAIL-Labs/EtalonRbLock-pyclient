@@ -3,6 +3,7 @@ from astropy.time import Time
 
 from .bme280read import bme280 as temppressure
 from .PID import PID
+from .ringbuffer import RingBuffer
 
 def current_time(flatten=False, datetime=False, pretty=False):
     """ Convenience method to return the "current" time according to the system

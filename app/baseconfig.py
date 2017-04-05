@@ -29,15 +29,15 @@ class erblconfig:
 
         self.useExtPID = 0
         if self.useExtPID:
-            self.MESetPointStart = 3.42 # Temp
+            self.MESetPointStart = 3.42  # Temp
         else:
             self.MESetPointStart = 0.52  # current
 
-        self.baseDirectory = os.path.join(os.getcwd(),'data', datetime.date.today().isoformat())
+        self.baseDirectory = os.path.join(os.getcwd(),'data')
         os.makedirs(self.baseDirectory, exist_ok=True)
-        self.image_directory = os.path.join(self.baseDirectory, 'specimages')
+        self.image_directory = os.path.join(self.baseDirectory, 'specimages', datetime.date.today().isoformat())
         os.makedirs(self.image_directory, exist_ok=True)
-        self.rbLockData_directory = os.path.join(self.baseDirectory, 'rbData')
+        self.rbLockData_directory = os.path.join(self.baseDirectory, 'rbData', datetime.date.today().isoformat())
         os.makedirs(self.rbLockData_directory, exist_ok=True)
 
 

@@ -6,6 +6,6 @@
 """
 
 import app
-from app import RbMoniter
+from app import RbMonitor
 if __name__ == '__main__':
-    RbMoniter.main()
+    RbMonitor.main()

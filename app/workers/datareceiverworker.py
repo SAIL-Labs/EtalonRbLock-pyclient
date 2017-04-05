@@ -1,6 +1,7 @@
 from app import erlBase
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
+import numpy as np
 import time
 import socket
 
