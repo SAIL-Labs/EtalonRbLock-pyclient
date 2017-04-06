@@ -456,7 +456,7 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
     @pyqtSlot(float)
     def setCamExposure(self, exposure_time):
         self.logger.debug('Camera: Exposure set to %d ms', int(exposure_time * 1000))
-        self.cam.setCCD_exposure(int(exposure_time * 1000))
+        self.cam.CCD_exposure = int(exposure_time * 1000)
 
 
 def main():

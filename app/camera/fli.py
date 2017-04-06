@@ -54,22 +54,22 @@ class Camera(AbstractCamera):
 
     @property
     def CCD_set_point(self):
-        return self.CCD_set_point
+        return self.__CCD_set_point
 
     @property
     def CCD_exposure(self):
-        return self.CCD_exposure
+        return self.__CCD_exposure
 
     @CCD_exposure.setter
     def CCD_exposure(self, exposure_length):
         self._cam.set_exposure(exposure_length)
-        self.CCD_exposure = exposure_length
+        self.__CCD_exposure = exposure_length
 
     @CCD_set_point.setter
     def CCD_set_point(self, set_point):
-        self.logger.debug("Setting {} cooling set point to {}".format(self.name, set_point))
+        #self.logger.debug("Setting {} cooling set point to {}".format(self.name, set_point))
         self._cam.set_temperature(set_point)
-        self.CCD_set_point = set_point
+        self.__CCD_set_point = set_point
 
     def save_image_to_fits(self, imagetime, imdata, filename, exposuretime, temp, pressure, hum):
         header = fits.Header()
