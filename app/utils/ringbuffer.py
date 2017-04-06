@@ -17,6 +17,12 @@ class RingBuffer():
         self.data = np.delete(self.data, 0)
         return value
 
+    def pop(self):
+        value = self.data[-1]
+        self.data = np.delete(self.data, -1)
+        self.totaldataadded -= 1
+        return value
+
     def clear(self):
         self.data = np.zeros(0, dtype='f')
         self.totaldataadded = 0
