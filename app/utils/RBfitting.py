@@ -23,6 +23,7 @@ from ..comms.TCPIPreceiver import TCPIPreceiver
 from .. import erlBase
 
 erlb=erlBase()
+decimation=erlb.config.decimation
 
 # from remoteexecutor import remoteexecutor
 
@@ -193,7 +194,7 @@ def fitEtalon(x, data, dec=1):
     return best_parameters[2]
 
 
-@jit(cache=True, nopython=True)
+@jit(cache=True)
 def getRbWindow(rbdata, left=1):
     """
 
@@ -204,10 +205,10 @@ def getRbWindow(rbdata, left=1):
     centre = min(peakutils.indexes(rbdata, thres=0.6,min_dist=1000))
 
     if left:
-        start = centre - 160000/2//erlb.config.decimation
+        start = centre - 160000/2//decimation
     else:
-        start = np.argmax(rbdata) - 256000//erlb.config.decimation
-    finish = start + 160000//erlb.config.decimation
+        start = np.argmax(rbdata) - 256000//decimation
+    finish = start + 160000//decimation
 
     return int(start), int(finish)
 
@@ -224,14 +225,14 @@ def fitRblines(x, datab):
 
     datab=(datab / datab.mean() - 1)
 
-    start, finish = getRbWindow(datab[1:1152000//erlb.config.decimation])
+    start, finish = getRbWindow(datab[1:1152000//decimation])
 
     datab = datab[start:finish:1]
     x = x[start:finish:1]
 
     # defining the 'background' part of the spectrum #
-    ind_bg_low = (x >= start) & (x < (start + 25600//erlb.config.decimation))
-    ind_bg_high = (x > finish - 51200//erlb.config.decimation) & (x <= finish)
+    ind_bg_low = (x >= start) & (x < (start + 25600//decimation))
+    ind_bg_high = (x > finish - 51200//decimation) & (x <= finish)
 
     x_bg = np.concatenate((x[ind_bg_low], x[ind_bg_high]))
     b_bg = np.concatenate((datab[ind_bg_low], datab[ind_bg_high]))
@@ -253,8 +254,8 @@ def fitRblines(x, datab):
 
     # try:
     if 1:
-        indexes = peakutils.indexes(savgol_filter(b_bg_corr, 11, 3), thres=0.10, min_dist=6400//erlb.config.decimation)
-        locs = peakutils.interpolate(x,b_bg_corr, ind=indexes, width=2560//erlb.config.decimation, func=loren_fit)
+        indexes = peakutils.indexes(savgol_filter(b_bg_corr, 11, 3), thres=0.10, min_dist=6400//decimation)
+        locs = peakutils.interpolate(x,b_bg_corr, ind=indexes, width=2560//decimation, func=loren_fit)
         #locs = x[indexes]
         pks=b_bg_corr[indexes]
         return locs
