@@ -1,12 +1,15 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 from app import erlBase
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from astropy.time import Time
 import numpy as np
 from ..utils import temppressure
-import sys
-
+import time
 from ..camera import Camera
+
 
 class CameraExposureThread(QtCore.QThread,erlBase):
     dataReady = pyqtSignal(np.ndarray,Time, float, float, float)

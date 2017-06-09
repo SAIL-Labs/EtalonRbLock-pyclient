@@ -16,6 +16,7 @@ from scipy.optimize import leastsq,least_squares
 from scipy import optimize
 from scipy.signal import savgol_filter
 import peakutils
+from peakutils.plot import plot as pplot
 eps = np.finfo(float).eps
 
 from . import peakdetect
@@ -170,7 +171,7 @@ def fitEtalon(x, data, dec=1):
         raise RuntimeError
     #data = savgol_filter(data, 1001, 3)
     data=data/data.max()
-    p = np.array([3, 3, centrestart, 0.75*erlb.config.aquisitionsize, 1, 0.1])
+    p = np.array([1.5, 1.5, centrestart, 0.42*erlb.config.aquisitionsize, 1, 0.03])
     #print(p)
     # pbest = leastsq(residualsEtalon, p, args=(data[centrestart-5000:centrestart+5000:dec], x[centrestart-5000:centrestart+5000:dec]), full_output=True)
     # best_parameters = pbest[0]
@@ -194,7 +195,7 @@ def fitEtalon(x, data, dec=1):
     return best_parameters[2]
 
 
-@jit(cache=True)
+#@jit(cache=True)
 def getRbWindow(rbdata, left=1):
     """
 
@@ -202,15 +203,16 @@ def getRbWindow(rbdata, left=1):
     :param left:
     :return:
     """
-    centre = min(peakutils.indexes(rbdata, thres=0.6,min_dist=1000))
-
+    centre = min(peakutils.indexes(rbdata, thres=0.5,min_dist=50))
+    #pplot(range(len(rbdata)),rbdata,peakutils.indexes(rbdata, thres=0.6,min_dist=1000))
     if left:
-        start = centre - 160000/2//decimation
+        start = centre - 75000//decimation
     else:
         start = np.argmax(rbdata) - 256000//decimation
-    finish = start + 160000//decimation
+    finish = start + 150000//decimation
 
     return int(start), int(finish)
+    # pplot(np.linspace(0,len(rbdata),len(rbdata)),rbdata, np.asarray([start, centre, finish],dtype=np.int))
 
 
 def fitRblines(x, datab):
@@ -223,7 +225,9 @@ def fitRblines(x, datab):
     global pRbstart
     #datab = savgol_filter(datab, 101, 3)
 
-    datab=(datab / datab.mean() - 1)
+    #datab=(datab / datab.mean() - 1)
+    datab=datab-datab.mean()
+    datab=datab/datab.min()
 
     start, finish = getRbWindow(datab[1:1152000//decimation])
 
@@ -231,7 +235,7 @@ def fitRblines(x, datab):
     x = x[start:finish:1]
 
     # defining the 'background' part of the spectrum #
-    ind_bg_low = (x >= start) & (x < (start + 25600//decimation))
+    ind_bg_low = (x >= start) & (x < (start + 32000//decimation))
     ind_bg_high = (x > finish - 51200//decimation) & (x <= finish)
 
     x_bg = np.concatenate((x[ind_bg_low], x[ind_bg_high]))
@@ -254,10 +258,13 @@ def fitRblines(x, datab):
 
     # try:
     if 1:
-        indexes = peakutils.indexes(savgol_filter(b_bg_corr, 11, 3), thres=0.10, min_dist=6400//decimation)
-        locs = peakutils.interpolate(x,b_bg_corr, ind=indexes, width=2560//decimation, func=loren_fit)
-        #locs = x[indexes]
-        pks=b_bg_corr[indexes]
+        locs=np.zeros(6)
+        pks=np.zeros(6)
+        indexes = peakutils.indexes(savgol_filter(b_bg_corr,11,3), thres=0.035, min_dist=5000//decimation)
+        # locs = peakutils.interpolate(x,b_bg_corr, ind=indexes, width=2560//decimation, func=loren_fit)
+        # pplot(np.linspace(0,len(b_bg_corr),len(b_bg_corr)),b_bg_corr, indexes)
+        locs[0:6] = x[indexes]
+        pks[0:6] = b_bg_corr[indexes]
         return locs
 
     else:

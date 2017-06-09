@@ -29,7 +29,8 @@ from app.workers import CameraExposureThread, fitdatathread, getDataReceiverWork
 
 
 class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
-    rbcentres = RingBuffer()
+
+    rbcentres = RingBuffer(size=6)
     etaloncentres = RingBuffer()
     trigtimesfitted = RingBuffer()
     trigtimes = RingBuffer()
@@ -66,7 +67,7 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
         time.sleep(0.5)
         self.doubleSpinBox_mesetpoint.setValue(self.config.MESetPointStart)
         self.ur.sendAckResponse(self.config.MESetPointStart)
-        time.sleep(0.5)
+        time.sleep(1)
         self.ur.receiveDACData()
         self.ur.recieveTrigerTimeAndTemp()
 
@@ -243,7 +244,7 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
     def fitdata(self, dataA, dataB, trigtime, temp, looptime):
         if self.checkBox_fitting.isChecked():
             # t = time.time()
-            if self.checkBox_fitting.isChecked() and (not dataA.max() < 1200 or dataB.min() > -300):
+            if self.checkBox_fitting.isChecked() and (not dataA.max() < 500 or dataB.min() > -300):
                 fittingwork = fitdatathread(dataA, dataB, trigtime)
                 fittingwork.dataReady.connect(self.plotfitdata)
                 fittingwork.start()
@@ -329,11 +330,16 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
             worker3.start()
 
     def plotfitdata(self, etaloncentre, newRBcentre, trigtime):
-        if 0:  # len(self.rbcentres) > 2 and (abs(np.mean(newRBcentre) - np.mean(self.rbcentres[-1])) > 500
+        if 0: #len(self.rbcentres) > *6 and (abs(np.mean(newRBcentre) - np.mean(self.rbcentres.data[-20:],axis=1)) > 10):
             #                           or abs(etaloncentre - self.etaloncentres[-1]) > 500):
-            print('275')
+            print('335')
             return
         else:
+            if len(self.rbcentres.data) > 20:
+                if abs(np.mean(newRBcentre) - self.rbcentres.data[-20:].mean(axis=1).mean()) > 20:
+                    self.logger.warning("bad rb value({0}):")
+                    return
+
             self.etaloncentres.append(etaloncentre)
             self.rbcentres.append(newRBcentre)
             self.trigtimesfitted.append(trigtime)
@@ -357,7 +363,7 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
 
                     delay = self.config.delay
                     if self.radioButton_PIDUseEtalon.isChecked():
-                        self.PIDaction((error[-60:] * self.config.degperms).mean(), 0, trigtime, delay)
+                        self.PIDaction((error[-1:] * self.config.degperms).mean(), 0, trigtime, delay)
 
                     win = self.spinBox_plotwindowsize.value()
                     if self.checkBox_etalonsmoothing.isChecked():
@@ -386,7 +392,8 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
                     if len(self.trigtimesfitted) > 1:
                         self.lcdNumber_fitrate.display(1000/np.mean(np.diff(self.trigtimesfitted.data[-100:])))
 
-            except IndexError:
+            except (IndexError, ValueError, TypeError, RuntimeError) as err:
+                self.logger.warning("plot fit error({0}):".format(err))
                 self.etaloncentres.pop()
                 self.rbcentres.pop()
                 self.trigtimesfitted.pop()
@@ -398,7 +405,9 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
                                 'trigtimes': self.trigtimes.data,
                                 'temps': self.temps.data,
                                 'looptimes': self.looptimes.data,
-                                'trigtimesfitted': self.trigtimesfitted.data
+                                'trigtimesfitted': self.trigtimesfitted.data,
+                                'rbraw': self.ur.dataB,
+                                'etalonraw': self.ur.dataA
                                 })
 
     @pyqtSlot()

@@ -24,9 +24,9 @@ class fitdatathread(QtCore.QThread,erlBase):
         try:
             newRBcentre = fr.fitRblines(self.x, self.dataB)
 
-            etalondata = signal.sosfiltfilt(self.config.sos, self.dataA)
-            #etalondata=self.dataA
-            etaloncentre = fr.fitEtalon(self.x, etalondata, 100)
+            #etalondata = signal.sosfiltfilt(self.config.sos, self.dataA)
+            etalondata=self.dataA
+            etaloncentre = fr.fitEtalon(self.x, etalondata, 50)
 
             self.dataReady.emit(etaloncentre, newRBcentre, self.trigtime)
         except (ValueError, TypeError, RuntimeError) as err:

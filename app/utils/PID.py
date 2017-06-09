@@ -30,7 +30,7 @@ class PID(erlBase):
 
         error = input - setpoint
 
-        dt = mesurmentTime - self.prevtm  # get delta t
+        dt = 1/20 #mesurmentTime - self.prevtm  # get delta t
         # de = error - self.prev_err          # get delta error
 
         self.Cp = self.kp * error

@@ -22,16 +22,17 @@ class erblconfig:
         self.samplescale_ms = 0.4131877581547582
 
         self.decimation = 64
-        self.aquisitionsize = 1280000 // self.decimation
+        #self.aquisitionsize = 1280000 // self.decimation # 20000
+        self.aquisitionsize = 1536000 // self.decimation  # 24000
 
         self.degperms = 1 / 8200
         self.delay = 1
 
         self.useExtPID = 0
         if self.useExtPID:
-            self.MESetPointStart = 3.42  # Temp
+            self.MESetPointStart = 3.44  # Temp
         else:
-            self.MESetPointStart = 0.52  # current
+            self.MESetPointStart = 0.565  # current
 
         self.baseDirectory = os.path.join(os.getcwd(),'data')
         os.makedirs(self.baseDirectory, exist_ok=True)

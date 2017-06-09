@@ -31,8 +31,10 @@ class remoteexecutor(erlBase):
 
         self.logger.debug('EtalonRbLock-server was running. Process started/restarted with new options: ' + options)
 
-        cmd = 'bash ~/EtalonRbLock-server/start-server.sh ~/EtalonRbLock-server/EtalonRbLock-server ' + options
+        cmd = "bash ~/EtalonRbLock-server/start-server.sh  '~/EtalonRbLock-server/EtalonRbLock-server " + options + "'"
         self.stdin, self.stdout, self.stderr = self.client.exec_command(cmd)
+
+        print(self.stdout.readlines())
 
         ## ps aux | grep EtalonRbLock-server | grep -v grep
 

@@ -28,7 +28,7 @@ etaloncentres = []
 scale = []
 
 x = np.arange(20000)
-ur.sendAckResponse(erlb.config.starttemp)
+ur.sendAckResponse(erlb.config.MESetPointStart)
 time.sleep(0.2)
 ur.receiveDACData()
 ur.recieveTrigerTimeAndTemp()
@@ -36,9 +36,11 @@ ur.recieveTrigerTimeAndTemp()
 # rbcentres = np.empty((6,1))
 t = time.time()
 #plt.clf()
-for i in range(0, 100):
+
+for i in range(0, 1):
+    erroroccured = False
     try:
-        ur.doALL(erlb.config.starttemp)
+        ur.doALL(erlb.config.MESetPointStart)
         # b=(ur.dataB-ur.dataB[320000])*-1.0
 
         # start = np.argmin(ur.dataB[0:230000])- 19000
@@ -49,12 +51,13 @@ for i in range(0, 100):
         etaloncentre = fitEtalon(x, etalondata,100)
 
         #scale.append(fitwavelengthscale(newRBcentre))
-        rbcentres.append(newRBcentre)
-        etaloncentres.append(etaloncentre)
+        #rbcentres.append(newRBcentre)
+        #etaloncentres.append(etaloncentre)
+
 
     except:
+        erroroccured=True
         pass
-
 elapsed = time.time() - t
 
 print((i + 1) / elapsed)

@@ -1,3 +1,5 @@
+
+
 import os
 
 import FLI
@@ -7,15 +9,32 @@ from .camera import AbstractCamera
 
 
 class Camera(AbstractCamera):
+    """
+    
+    """
+
     _cam = None
 
     def __init__(self,
                  name='FLI M8300',
                  set_point=10,
                  *args, **kwargs):
+        """
+        
+        :param name: 
+        :type name: 
+        :param set_point: 
+        :type set_point: 
+        :param args: 
+        :type args: 
+        :param kwargs: 
+        :type kwargs: 
+        """
         kwargs['readout_time'] = 2.4
         kwargs['file_extension'] = 'fits'
         super().__init__(name, *args, **kwargs)
+
+
         self.connect()
         # Set cooling (if set_point=None this will turn off cooling)
         if self.is_connected:
@@ -23,6 +42,13 @@ class Camera(AbstractCamera):
             self.logger.info('\t\t\t {} initialised'.format(self))
 
     def connect(self, setpoint=None):
+        """
+        
+        :param setpoint: 
+        :type setpoint: 
+        :return: 
+        :rtype: 
+        """
         cams = FLI.camera.USBCamera.find_devices()
 
         try:
@@ -40,6 +66,8 @@ class Camera(AbstractCamera):
 
     @AbstractCamera.uid.getter
     def uid(self):
+        """"
+        """
         # Unlike Canon DSLRs 1st 6 characters of serial number is *not* a unique identifier.
         # Need to use the whole thing.
         return str(self._serial_number)
@@ -62,6 +90,13 @@ class Camera(AbstractCamera):
 
     @CCD_exposure.setter
     def CCD_exposure(self, exposure_length):
+        """
+        
+        :param exposure_length: 
+        :type exposure_length: 
+        :return: 
+        :rtype: 
+        """
         self._cam.set_exposure(exposure_length)
         self.__CCD_exposure = exposure_length
 

@@ -1,4 +1,6 @@
-# TCPIPreceiver.py
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import socket   #for sockets
 #from array import array
 import numpy as np

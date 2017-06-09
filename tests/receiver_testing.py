@@ -1,16 +1,17 @@
-import updreceiver
+from app.comms.TCPIPreceiver import TCPIPreceiver
+from app.baseconfig import getLocalInterfaceIp
 import socket
 import time
 
 
-localIP=socket.gethostbyname(socket.gethostname()) #socket.getfqdn()
 rpIP=socket.gethostbyname('redpitaya1.sail-laboratories.com')
+localIP=getLocalInterfaceIp(rpIP)
 print(localIP)
 print(rpIP)
 
-aquisitionsize = 150000
+aquisitionsize = 20000
 
-ur = updreceiver.updreceiver(12345, 12346, 12347, aquisitionsize, rpIP)
+ur = TCPIPreceiver(12345, 12346, 12347, aquisitionsize, rpIP)
 
 ur.sendAckResponse(10)
 time.sleep(1)
