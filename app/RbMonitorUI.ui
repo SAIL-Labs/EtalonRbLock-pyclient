@@ -159,6 +159,22 @@
         </item>
        </layout>
       </widget>
+      <widget class="QWidget" name="tab_Environment">
+       <attribute name="title">
+        <string>Environment</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <widget class="PlotWidget" name="pw_externalTemp"/>
+        </item>
+        <item>
+         <widget class="PlotWidget" name="pw_externalPressure"/>
+        </item>
+        <item>
+         <widget class="PlotWidget" name="pw_externalHumidity"/>
+        </item>
+       </layout>
+      </widget>
       <widget class="QWidget" name="tab_log">
        <attribute name="title">
         <string>Log</string>
@@ -1059,7 +1075,7 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="tabWidgetPage2">
+      <widget class="QWidget" name="SettingsTab">
        <attribute name="title">
         <string>Settings</string>
        </attribute>

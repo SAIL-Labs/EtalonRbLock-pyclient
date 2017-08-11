@@ -59,6 +59,9 @@ class TCPIPreceiver(erlBase, metaclass=Singleton):
         self.dataB = np.empty((self.AQUSITIONSIZE), dtype='i2')
         self.timetrigger = np.empty((1,1),dtype = '<u8')
         self.temp = np.empty((1,1),dtype = '<f')
+        self.tempexternal = np.empty((1, 1), dtype='<f')
+        self.pressure = np.empty((1, 1), dtype='<f')
+        self.humidity = np.empty((1, 1), dtype='<f')
 
     def recv_into(self,arr,port):
         """ Wrapper to connect to server and receive ADC data in numpy.ndarray "arr".
@@ -151,8 +154,12 @@ class TCPIPreceiver(erlBase, metaclass=Singleton):
         s = self.setupSocket(self.PORT_ACK, 1024)
         ttrig = s.recv_into(self.timetrigger, )
         ttemp = s.recv_into(self.temp, 4)
+        ttempexternal = s.recv_into(self.tempexternal, 4)
+        tpressure = s.recv_into(self.pressure, 4)
+        thumidity = s.recv_into(self.humidity, 4)
+
         s.close()
-        return ttemp, ttrig
+        return ttemp, ttrig,ttempexternal,tpressure,thumidity
 
     def doALL(self,tempset=8.00):
         """ execute sendAckResponse, receiveDACData and recieveTrigerTimeAndTemp in order.

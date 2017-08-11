@@ -1,11 +1,15 @@
 #from .. import erlBase
 import serial
+import time
 
 class bme280(object):
+    temp=-90.0
+    pressure=0
+    hum=0
 
-    def __init__(self,port='/dev/ttyACM0'):
+    def __init__(self,port='/dev/ttyUSB1'):
         #erlBase.__init__(self)
-        self.ser = serial.Serial(port)
+        self.ser = serial.Serial(port,baudrate=115200)
         self.port = port
 
 
@@ -22,3 +26,11 @@ class bme280(object):
 
 if __name__ == '__main__':
     tp=bme280()
+
+    t = time.time()
+    for i in range(100):
+        t = time.time()
+        tp.getData()
+        elapsed=time.time() - t
+        print("{}, {}, {}, {}".format(1/elapsed, tp.temp, tp.pressure, tp.hum))
+

@@ -10,7 +10,7 @@ class erblconfig:
         #self.rpIP = '192.168.1.100'
         self.localIP = getLocalInterfaceIp(self.rpIP)
 
-        self.arduinoport = '/dev/ttyACM0'
+        self.arduinoport = '/dev/ttyUSB0'
 
         self.sos = np.asarray(
             [[5.80953794660816e-06, 1.16190758932163e-05, 5.80953794660816e-06, 1, -1.99516198526679,

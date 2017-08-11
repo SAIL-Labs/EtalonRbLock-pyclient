@@ -24,7 +24,7 @@ from app import erlBase
 from app.RbMonitorUI import Ui_RbMoniter
 from app.camera import Camera
 from app.comms import TCPIPreceiver, remoteexecutor
-from app.utils import PID, RingBuffer
+from app.utils import PID, RingBuffer,temppressure
 from app.workers import CameraExposureThread, fitdatathread, getDataReceiverWorker, SaveTelemetryThread
 
 
@@ -38,6 +38,10 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
     looptimes = RingBuffer()
     trigtimescontrol = RingBuffer()
     controlvalues = RingBuffer()
+    externaltemp = RingBuffer()
+    pressure = RingBuffer()
+    humidity = RingBuffer()
+
 
     DataReceiverThread = []
     dataReceivedWorker = []
@@ -83,6 +87,9 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
         self.plot_rbdata = self.pw_rbdata.plot()
         self.DiagnosticRbPlot = self.pw_DiagnosticRbPlot.plot()
         self.DiagnosticEtalonPlot = self.pw_DiagnosticEtalonPlot.plot()
+        self.EnvironmentTempPlot = self.pw_externalTemp.plot()
+        self.EnvironmentPressurePlot = self.pw_externalPressure.plot()
+        self.EnvironmentHumidityPlot = self.pw_externalHumidity.plot()
 
         self.pw_rawtimeseriesPlot = self.glw_rawtimeseries.addPlot()
         self.plot_rawtimeseries1 = self.pw_rawtimeseriesPlot.plot(pen=(0, 0, 200))
@@ -108,6 +115,9 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
         self.plot_rbdata.setDownsampling(method='peak', auto=True)
         self.DiagnosticRbPlot.setDownsampling(method='peak', auto=True)
         self.DiagnosticEtalonPlot.setDownsampling(method='peak', auto=True)
+        self.EnvironmentTempPlot.setDownsampling(method='peak', auto=True)
+        self.EnvironmentPressurePlot.setDownsampling(method='peak', auto=True)
+        self.EnvironmentHumidityPlot.setDownsampling(method='peak', auto=True)
         self.plot_rawtimeseries1.setDownsampling(method='peak', auto=True)
         self.plot_rawtimeseries2.setDownsampling(method='peak', auto=True)
         self.plot_velocitytimeseries.setDownsampling(method='peak', auto=True)
@@ -125,6 +135,8 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
         self.doubleSpinBox_mesetpoint_min.valueChanged.connect(self.doubleSpinBox_mesetpoint.setMinimum)
         self.doubleSpinBox_mesetpoint_min.valueChanged.connect(self.pid.setMin)
         self.pushButton_resetPID.clicked.connect(self.resetPID)
+
+        #self.temppressure = temppressure(self.config.arduinoport)
 
         if self.config.useExtPID:
             self.doubleSpinBox_mesetpoint_max.setValue(25)
@@ -144,6 +156,10 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
         self.trigtimesfitted.clear()
         self.trigtimescontrol.clear()
         self.controlvalues.clear()
+        self.externaltemp.clear()
+        self.pressure.clear()
+        self.humidity.clear()
+
         self.updatePIDparameters(0)
 
     def closeEvent(self, event):
@@ -210,18 +226,41 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
             self.startbutton.setEnabled(True)
             self.stopbutton.setEnabled(False)
 
-    @pyqtSlot(np.ndarray, np.ndarray, float, float, float, name="plotData")
-    def plotData(self, dataA, dataB, trigtime, temp, looptime):
+    @pyqtSlot(np.ndarray, np.ndarray, tuple, name="plotData")
+    def plotData(self, dataA, dataB, telemetry):
         self.trimdatadeques()
+
+        (trigtime, temp, looptime, tempexternal, pressure, humidity) = telemetry
+
         self.trigtimes.append(trigtime)
         self.temps.append(temp)
         self.looptimes.append(looptime)
+        self.externaltemp.append(tempexternal)
+        self.pressure.append(pressure)
+        self.humidity.append(humidity)
+
+        QtWidgets.QApplication.processEvents()
 
         if not len(self.trigtimes) % 1:  # update every spinBox_update_rate.value() samples
             # print(trigtime,temp,1/looptime)
             if self.tabWidget_display.currentIndex() is 1:
                 self.DiagnosticRbPlot.setData(y=dataB, x=self.x)
                 self.DiagnosticEtalonPlot.setData(y=dataA, x=self.x)
+
+            elif self.tabWidget_display.currentIndex() is 3:
+                if len(self.trigtimes) > 1:
+                    self.EnvironmentTempPlot.setData(y=self.externaltemp.data[-self.spinBox_plotwindowsize.value():],
+                                                     x=(self.trigtimes.data[-self.spinBox_plotwindowsize.value():] -
+                                                        self.trigtimes.data[0]) / 1000)
+
+                    self.EnvironmentPressurePlot.setData(y=self.pressure.data[-self.spinBox_plotwindowsize.value():],
+                                                             x=(self.trigtimes.data[-self.spinBox_plotwindowsize.value():] -
+                                                                self.trigtimes.data[0]) / 1000)
+
+                    self.EnvironmentHumidityPlot.setData(y=self.humidity.data[-self.spinBox_plotwindowsize.value():],
+                                                             x=(self.trigtimes.data[-self.spinBox_plotwindowsize.value():] -
+                                                                self.trigtimes.data[0]) / 1000)
+
             elif self.tabWidget_display.currentIndex() is 0:
                 # t = time.time()
                 #
@@ -240,8 +279,9 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
                     self.lcdNumber_tempStd.display(1000 * np.std(self.temps.data[-100:]))
 
     # noinspection PyUnusedLocal
-    @pyqtSlot(np.ndarray, np.ndarray, float, float, float)
-    def fitdata(self, dataA, dataB, trigtime, temp, looptime):
+    @pyqtSlot(np.ndarray, np.ndarray, tuple)
+    def fitdata(self, dataA, dataB, telemetry):
+        (trigtime, temp, looptime, tempexternal, pressure, humidity) = telemetry
         if self.checkBox_fitting.isChecked():
             # t = time.time()
             if self.checkBox_fitting.isChecked() and (not dataA.max() < 500 or dataB.min() > -300):
@@ -309,12 +349,19 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
             looptimes_out = []
             temps_out = []
             trigtimes_out = []
+            externaltemp_out = []
+            pressure_out = []
+            humidity_out = []
             for i in range(savelength):
                 looptimes_out.append( self.looptimes.popleft())
                 temps_out.append(self.temps.popleft())
                 trigtimes_out.append(self.trigtimes.popleft())
+                externaltemp_out.append(self.externaltemp.popleft())
+                pressure_out.append(self.pressure.popleft())
+                humidity_out.append(self.humidity.popleft())
 
-            dataout = np.column_stack((trigtimes_out, looptimes_out, temps_out))
+
+            dataout = np.column_stack((trigtimes_out, looptimes_out, temps_out,externaltemp_out,pressure_out,humidity_out))
             worker2 = SaveTelemetryThread(os.path.join(self.config.rbLockData_directory, 'data-temp.csv'), dataout)
             worker2.start()
 
