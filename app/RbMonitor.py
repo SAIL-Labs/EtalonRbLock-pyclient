@@ -15,6 +15,7 @@ from collections import deque
 
 import numpy as np
 import scipy.io
+import scipy.signal
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import pyqtSlot
 from astropy.time import Time
@@ -30,7 +31,7 @@ from app.workers import CameraExposureThread, fitdatathread, getDataReceiverWork
 
 class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
 
-    rbcentres = RingBuffer(size=6)
+    rbcentres = RingBuffer(size=3)
     etaloncentres = RingBuffer()
     trigtimesfitted = RingBuffer()
     trigtimes = RingBuffer()
@@ -392,7 +393,7 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
             self.trigtimesfitted.append(trigtime)
 
             try:
-                if len(self.trigtimesfitted) > 1:
+                if len(self.trigtimesfitted) > 5:
                     plotimefitted = self.trigtimesfitted.data / 1000
                     # plotimefitted -= plotimefitted[0]
                     plotimefitted -= self.trigtimes.data[0] / 1000
@@ -404,7 +405,7 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
 
                     etalonplotdata = self.etaloncentres.data * self.config.samplescale_ms
 
-                    error = -(etalonplotdata - rbplotdata)
+                    error = -(etalonplotdata - scipy.signal.savgol_filter(rbplotdata,5,1))
                     # rbplotdata -= rbplotdata[0]
                     # etalonplotdata -= etalonplotdata[0]
 

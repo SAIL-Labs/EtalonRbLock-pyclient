@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from scipy import signal
 from peakutils import plot as pkplot
 import socket
-import time
+#import time
 
 
 sos = np.asarray(
@@ -22,12 +22,12 @@ SHOULDPLOT_RB = 0
 SHOULDPLOT_etalon = 0
 if SHOULDPLOT_RB or SHOULDPLOT_etalon:
     plt.ion()
-ur = TCPIPreceiver(12345, 12346, 12347, 20000, rpIP)
+ur = TCPIPreceiver(12345, 12346, 12347, 24000, rpIP)
 rbcentres = []
 etaloncentres = []
 scale = []
 
-x = np.arange(20000)
+x = np.arange(24000)
 ur.sendAckResponse(erlb.config.MESetPointStart)
 time.sleep(0.2)
 ur.receiveDACData()
@@ -37,7 +37,7 @@ ur.recieveTrigerTimeAndTemp()
 t = time.time()
 #plt.clf()
 
-for i in range(0, 1):
+for i in range(0, 3):
     erroroccured = False
     try:
         ur.doALL(erlb.config.MESetPointStart)
@@ -53,7 +53,6 @@ for i in range(0, 1):
         #scale.append(fitwavelengthscale(newRBcentre))
         #rbcentres.append(newRBcentre)
         #etaloncentres.append(etaloncentre)
-
 
     except:
         erroroccured=True

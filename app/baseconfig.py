@@ -19,7 +19,7 @@ class erblconfig:
 
         self.samplescale_nm = 9.1604852488056226e-07  # nm per sample, 20hz, 20000 samples, DE_64, sweep amp 20, centre
         self.samplescale_nm = 1.0914981908744188e-06
-        self.samplescale_ms = 0.4131877581547582
+        self.samplescale_ms = 0.55184
 
         self.decimation = 64
         #self.aquisitionsize = 1280000 // self.decimation # 20000
@@ -28,11 +28,11 @@ class erblconfig:
         self.degperms = 1 / 8200
         self.delay = 1
 
-        self.useExtPID = 0
+        self.useExtPID = 1
         if self.useExtPID:
             self.MESetPointStart = 3.44  # Temp
         else:
-            self.MESetPointStart = 0.565  # current
+            self.MESetPointStart = 0.6  # current
 
         self.baseDirectory = os.path.join(os.getcwd(),'data')
         os.makedirs(self.baseDirectory, exist_ok=True)

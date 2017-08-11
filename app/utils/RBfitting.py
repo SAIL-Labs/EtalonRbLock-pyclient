@@ -17,6 +17,7 @@ from scipy import optimize
 from scipy.signal import savgol_filter
 import peakutils
 from peakutils.plot import plot as pplot
+from matplotlib import pyplot as plt
 eps = np.finfo(float).eps
 
 from . import peakdetect
@@ -203,20 +204,46 @@ def getRbWindow(rbdata, left=1):
     :param left:
     :return:
     """
-    centre = min(peakutils.indexes(rbdata, thres=0.5,min_dist=50))
+    centre = min(peakutils.indexes(savgol_filter(rbdata,501,1), thres=0.3,min_dist=50))
     #pplot(range(len(rbdata)),rbdata,peakutils.indexes(rbdata, thres=0.6,min_dist=1000))
     if left:
-        start = centre - 75000//decimation
+        start = centre - 60000//decimation
     else:
         start = np.argmax(rbdata) - 256000//decimation
-    finish = start + 150000//decimation
-
+    finish = start + 120000//decimation
+    #pyplot.figure(figsize=(10, 6))
+    #pplot(np.linspace(0, len(rbdata), len(rbdata)), rbdata, np.asarray([start, centre, finish], dtype=np.int))
     return int(start), int(finish)
-    # pplot(np.linspace(0,len(rbdata),len(rbdata)),rbdata, np.asarray([start, centre, finish],dtype=np.int))
+    #
+    #pplot(np.linspace(0, len(rbdata), len(rbdata)), savgol_filter(rbdata,501,3), peakutils.indexes(savgol_filter(rbdata,501,3), thres=0.2,min_dist=50))
 
 
 def fitRblines(x, datab):
-    """
+    locs = np.zeros(3)
+
+    datab=datab-datab.mean()
+    datab=datab/datab.min()
+
+    start, finish = getRbWindow(datab[1:1152000//decimation])
+
+    datab = datab[start:finish:1]
+    x = x[start:finish:1]
+
+    RbDeriv = savgol_filter(np.diff(savgol_filter(datab, 31, 5)),61,5)
+
+    s = np.sign(RbDeriv)
+    s[s == 0] = -1  # replace zeros with -1
+    zero_crossings = np.where(np.diff(s))[0]
+
+    zero_crossings=zero_crossings[s[zero_crossings-1] > s[zero_crossings+1]]
+
+    pks_sort, indexes_sort = zip(*sorted(zip(datab[zero_crossings], zero_crossings)))
+    locs[0:3] = np.sort(x[np.asarray(indexes_sort)[-3:]])
+
+    return locs
+
+def fitRblinesAlt(x, datab):
+    """plt.plot(x, b_bg_corr, x, datab, x, background)
 
     :param x:
     :param datab:
@@ -234,15 +261,22 @@ def fitRblines(x, datab):
     datab = datab[start:finish:1]
     x = x[start:finish:1]
 
+    if 1:
+        locs = np.zeros(3)
+        indexes = peakutils.indexes(-1 * savgol_filter(np.diff(savgol_filter(np.diff(savgol_filter(datab,31,5)), 31, 5)), 31, 5), thres=0.45,
+                                min_dist=20)
+        locs[0:3] = x[indexes]
+        return locs
+
     # defining the 'background' part of the spectrum #
-    ind_bg_low = (x >= start) & (x < (start + 32000//decimation))
-    ind_bg_high = (x > finish - 51200//decimation) & (x <= finish)
+    ind_bg_low = (x >= start) & (x < (start + 51200//decimation))
+    ind_bg_high = (x > finish - 32000//decimation) & (x <= finish)
 
     x_bg = np.concatenate((x[ind_bg_low], x[ind_bg_high]))
     b_bg = np.concatenate((datab[ind_bg_low], datab[ind_bg_high]))
 
     # fitting the background to a line #
-    pf = np.poly1d(np.polyfit(x_bg, b_bg, 5))
+    pf = np.poly1d(np.polyfit(x_bg, b_bg, 4))
 
     # xsubwin=x[start:finish]
     # removing fitted background #
@@ -257,14 +291,18 @@ def fitRblines(x, datab):
         plt.pause(0.01)
 
     # try:
-    if 1:
+    if 0:
         locs=np.zeros(6)
         pks=np.zeros(6)
-        indexes = peakutils.indexes(savgol_filter(b_bg_corr,11,3), thres=0.035, min_dist=5000//decimation)
-        # locs = peakutils.interpolate(x,b_bg_corr, ind=indexes, width=2560//decimation, func=loren_fit)
-        # pplot(np.linspace(0,len(b_bg_corr),len(b_bg_corr)),b_bg_corr, indexes)
-        locs[0:6] = x[indexes]
-        pks[0:6] = b_bg_corr[indexes]
+
+        indexes = peakutils.indexes(savgol_filter(datab, 101, 3), thres=0.05, min_dist=20)
+        pks_sort, indexes_sort = zip(*sorted(zip(b_bg_corr[indexes], indexes)))
+        #locsfit = peakutils.interpolate(x,b_bg_corr, ind=indexes, width=2560//decimation, func=loren_fit)
+        #pyplot.figure(figsize=(10, 6))
+        #pplot(np.linspace(0,len(b_bg_corr),len(b_bg_corr)),b_bg_corr, indexes)
+        locs[0:6] = x[np.sort(indexes_sort[-6:])]
+        #locs[0:6] = locsfit
+        pks[0:6] = b_bg_corr[np.sort(indexes_sort[-6:])]
         return locs
 
     else:
@@ -383,7 +421,7 @@ def loren_fit(x, y, center_only=True):
         If center_only is `False`, returns the parameters of the Gaussian that fits the specified data
         If center_only is `True`, returns the center position of the Gaussian
     '''
-    initial = [1, 1, x[np.argmax(y)], (x[1] - x[0]) * 30, np.max(y), 0]
+    initial = [1, 1, x[np.argmax(y)], (x[1] - x[0]) * 40, np.max(y), 0]
     params, pcov = optimize.curve_fit(AsymLorentzianAlt, x, y, initial)
     #plt.plot(x, y, x, gaussian(x,params[0],params[1],params[2],params[3]))
     if center_only:
