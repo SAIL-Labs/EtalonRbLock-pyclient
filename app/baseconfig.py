@@ -7,7 +7,7 @@ class erblconfig:
 
     def __init__(self, *args, **kwargs):
         self.rpIP = socket.gethostbyname('redpitaya1.sail-laboratories.com')
-        #self.rpIP = '192.168.1.100'
+        self.rpIP = '192.168.1.100'
         self.localIP = getLocalInterfaceIp(self.rpIP)
 
         self.arduinoport = '/dev/ttyUSB0'
@@ -17,9 +17,9 @@ class erblconfig:
               0.995185223418579],
              [0.00240740227660535, 0.00240740227660535, 0, 1, -0.995185195446789, 0]])
 
-        self.samplescale_nm = 9.1604852488056226e-07  # nm per sample, 20hz, 20000 samples, DE_64, sweep amp 20, centre
-        self.samplescale_nm = 1.0914981908744188e-06
-        self.samplescale_ms = 0.55184
+        #self.samplescale_nm = 9.1604852488056226e-07  # nm per sample, 20hz, 20000 samples, DE_64, sweep amp 20, centre
+        #self.samplescale_nm = 1.0914981908744188e-06
+        self.samplescale_ms = 0.526
 
         self.decimation = 64
         #self.aquisitionsize = 1280000 // self.decimation # 20000
@@ -28,11 +28,17 @@ class erblconfig:
         self.degperms = 1 / 8200
         self.delay = 1
 
-        self.useExtPID = 1
+        self.useExtPID = 0
         if self.useExtPID:
-            self.MESetPointStart = 3.44  # Temp
+            self.MESetPointStart = 2.8  # Temp
+            self.kp = 3
+            self.Ti = 0
+            self.Td = 0
         else:
-            self.MESetPointStart = 0.6  # current
+            self.MESetPointStart = 0.531  # current
+            self.kp = 4
+            self.Ti = 250
+            self.Td = 0
 
         self.baseDirectory = os.path.join(os.getcwd(),'data')
         os.makedirs(self.baseDirectory, exist_ok=True)
@@ -40,6 +46,9 @@ class erblconfig:
         os.makedirs(self.image_directory, exist_ok=True)
         self.rbLockData_directory = os.path.join(self.baseDirectory, 'rbData', datetime.date.today().isoformat())
         os.makedirs(self.rbLockData_directory, exist_ok=True)
+
+
+
 
 
 def getLocalInterfaceIp(rpIP='8.8.8.8'):

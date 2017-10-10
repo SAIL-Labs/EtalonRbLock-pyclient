@@ -349,7 +349,7 @@
               <string/>
              </property>
              <property name="minimum">
-              <number>5</number>
+              <number>3</number>
              </property>
              <property name="maximum">
               <number>2001</number>
@@ -358,7 +358,7 @@
               <number>2</number>
              </property>
              <property name="value">
-              <number>51</number>
+              <number>3</number>
              </property>
             </widget>
            </item>
@@ -740,6 +740,9 @@
              <property name="text">
               <string>Use Etalon</string>
              </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
             </widget>
            </item>
            <item row="7" column="1" colspan="2">
@@ -815,7 +818,7 @@
               <string>Use Temp</string>
              </property>
              <property name="checked">
-              <bool>true</bool>
+              <bool>false</bool>
              </property>
              <property name="autoRepeat">
               <bool>true</bool>

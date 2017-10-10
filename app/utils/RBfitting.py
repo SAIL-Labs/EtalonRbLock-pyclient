@@ -197,14 +197,14 @@ def fitEtalon(x, data, dec=1):
 
 
 #@jit(cache=True)
-def getRbWindow(rbdata, left=1):
+def getRbWindow(rbdata, left=1, pk_thres=0.3, pk_min_dist=50):
     """
 
     :param rbdata:
     :param left:
     :return:
     """
-    centre = min(peakutils.indexes(savgol_filter(rbdata,501,1), thres=0.3,min_dist=50))
+    centre = min(peakutils.indexes(savgol_filter(rbdata,501,1), thres=pk_thres, min_dist=pk_min_dist))
     #pplot(range(len(rbdata)),rbdata,peakutils.indexes(rbdata, thres=0.6,min_dist=1000))
     if left:
         start = centre - 60000//decimation
@@ -218,8 +218,8 @@ def getRbWindow(rbdata, left=1):
     #pplot(np.linspace(0, len(rbdata), len(rbdata)), savgol_filter(rbdata,501,3), peakutils.indexes(savgol_filter(rbdata,501,3), thres=0.2,min_dist=50))
 
 
-def fitRblines(x, datab):
-    locs = np.zeros(3)
+def fitRblines(x, datab, numpeaks=3,sf_window_length=31, sf_polyorder=5):
+    locs = np.zeros(numpeaks)
 
     datab=datab-datab.mean()
     datab=datab/datab.min()
@@ -238,7 +238,9 @@ def fitRblines(x, datab):
     zero_crossings=zero_crossings[s[zero_crossings-1] > s[zero_crossings+1]]
 
     pks_sort, indexes_sort = zip(*sorted(zip(datab[zero_crossings], zero_crossings)))
-    locs[0:3] = np.sort(x[np.asarray(indexes_sort)[-3:]])
+    locs[0:numpeaks] = np.sort(x[np.asarray(indexes_sort)[-numpeaks:]])
+
+    #locs = peakutils.interpolate(x, datab, ind=indexes_sort[-numpeaks:], width=2560 // decimation, func=loren_fit)
 
     return locs
 

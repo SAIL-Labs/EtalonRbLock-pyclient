@@ -57,8 +57,8 @@ class PID(erlBase):
         elif self.output < self.minout:
             self.output = self.minout
 
-        #self.logger.debug("dP {}, dI {}, dD {}, total change {} : Output {}".format(
-        #    self.Cp, self.Ci, self.Cd, change, self.output))
+        # self.logger.debug("dP {}, dI {}, dD {}, total change {} : Output {}".format(
+        #     self.Cp, self.Ci, self.Cd, change, self.output))
         return self.output
 
     def setKpid(self, kp, ki, kd):

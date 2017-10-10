@@ -6,12 +6,13 @@ Created on Fri Aug 19 14:11:52 2016
 @author: chrisbetters
 """
 
-import itertools
+#import itertools
 import os
 import subprocess
 import sys
 import time
-from collections import deque
+import datetime
+#from collections import deque
 
 import numpy as np
 import scipy.io
@@ -25,7 +26,8 @@ from app import erlBase
 from app.RbMonitorUI import Ui_RbMoniter
 from app.camera import Camera
 from app.comms import TCPIPreceiver, remoteexecutor
-from app.utils import PID, RingBuffer,temppressure
+from app.utils import RingBuffer
+from app.utils.PIDIdeal import PID
 from app.workers import CameraExposureThread, fitdatathread, getDataReceiverWorker, SaveTelemetryThread
 
 
@@ -70,7 +72,6 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
             subprocess.Popen('caffeinate')
 
         time.sleep(0.5)
-        self.doubleSpinBox_mesetpoint.setValue(self.config.MESetPointStart)
         self.ur.sendAckResponse(self.config.MESetPointStart)
         time.sleep(1)
         self.ur.receiveDACData()
@@ -124,12 +125,17 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
         self.plot_velocitytimeseries.setDownsampling(method='peak', auto=True)
         self.plot_temp.setDownsampling(method='peak', auto=True)
 
+        self.doubleSpinBox_mesetpoint.setValue(self.config.MESetPointStart)
+        self.doubleSpinBox_P.setValue(self.config.kp)
+        self.doubleSpinBox_I.setValue(self.config.Ti)
+        self.doubleSpinBox_D.setValue(self.config.Td)
+
         self.doubleSpinBox_P.valueChanged.connect(self.updatePIDparameters)
         self.doubleSpinBox_I.valueChanged.connect(self.updatePIDparameters)
         self.doubleSpinBox_D.valueChanged.connect(self.updatePIDparameters)
 
-        self.pid = PID()
-        self.pid.setKpid(self.doubleSpinBox_P.value(), self.doubleSpinBox_I.value(), self.doubleSpinBox_D.value())
+        self.pid = PID(kp=self.doubleSpinBox_P.value(), Ti=self.doubleSpinBox_I.value(), Td=self.doubleSpinBox_D.value(), startvalue=self.config.MESetPointStart)
+        #self.pid.setKpid(self.doubleSpinBox_P.value(), self.doubleSpinBox_I.value(), self.doubleSpinBox_D.value())
 
         self.doubleSpinBox_mesetpoint_max.valueChanged.connect(self.doubleSpinBox_mesetpoint.setMaximum)
         self.doubleSpinBox_mesetpoint_max.valueChanged.connect(self.pid.setMax)
@@ -141,9 +147,9 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
 
         if self.config.useExtPID:
             self.doubleSpinBox_mesetpoint_max.setValue(25)
-            self.doubleSpinBox_mesetpoint_min.setValue(3)
+            self.doubleSpinBox_mesetpoint_min.setValue(2.5)
         else:
-            self.doubleSpinBox_mesetpoint_max.setValue(0.8)
+            self.doubleSpinBox_mesetpoint_max.setValue(0.7)
             self.doubleSpinBox_mesetpoint_min.setValue(0)
 
         self.logger.info("Started.")
@@ -303,7 +309,7 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
                 self.pid.prevtm = trigtime / 1000
 
                 self.pid.firstTime = False
-                self.pid.Ci = self.doubleSpinBox_mesetpoint.value()  # initial value, i.e. don't set current/temp ot
+                self.pid.Co = self.doubleSpinBox_mesetpoint.value()  # initial value, i.e. don't set current/temp ot
                 # zero.
                 newMESetPoint = self.doubleSpinBox_mesetpoint.value()  # initial value, i.e. don't set current ot zero.
             else:
@@ -323,15 +329,20 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
     # noinspection PyUnusedLocal
     def updatePIDparameters(self, new_value):
         self.pid.setKpid(self.doubleSpinBox_P.value(), self.doubleSpinBox_I.value(), self.doubleSpinBox_D.value())
+
         self.logger.debug("PID changed")
 
     def resetPID(self):
-        self.pid = PID()
-        self.pid.setKpid(self.doubleSpinBox_P.value(), self.doubleSpinBox_I.value(), self.doubleSpinBox_D.value())
+        self.pid = PID(kp=self.doubleSpinBox_P.value(), Ti=self.doubleSpinBox_I.value(),
+                       Td=self.doubleSpinBox_D.value(), startvalue=self.doubleSpinBox_mesetpoint)
+        #self.pid.setKpid(self.doubleSpinBox_P.value(), self.doubleSpinBox_I.value(), self.doubleSpinBox_D.value())
 
     def trimdatadeques(self):
         savelength=4000
         mindatainbuffer=6000
+
+        self.config.rbLockData_directory = os.path.join(self.config.baseDirectory, 'rbData', datetime.date.today().isoformat())
+        os.makedirs(self.config.rbLockData_directory, exist_ok=True)
 
         if not len(self.trigtimesfitted) % savelength and len(self.trigtimesfitted) > mindatainbuffer:
             rbcentres_out = []
@@ -405,13 +416,14 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
 
                     etalonplotdata = self.etaloncentres.data * self.config.samplescale_ms
 
-                    error = -(etalonplotdata - scipy.signal.savgol_filter(rbplotdata,5,1))
+                    #error = -(etalonplotdata - scipy.signal.savgol_filter(rbplotdata,self.spinBox_smoothingWindow.value(),1)) #
+                    error = -(etalonplotdata - rbplotdata)
                     # rbplotdata -= rbplotdata[0]
                     # etalonplotdata -= etalonplotdata[0]
 
                     delay = self.config.delay
                     if self.radioButton_PIDUseEtalon.isChecked():
-                        self.PIDaction((error[-1:] * self.config.degperms).mean(), 0, trigtime, delay)
+                        self.PIDaction((error[-10:] * self.config.degperms).mean(), 0, trigtime, delay)
 
                     win = self.spinBox_plotwindowsize.value()
                     if self.checkBox_etalonsmoothing.isChecked():
