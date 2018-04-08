@@ -8,6 +8,8 @@ class erblconfig:
     def __init__(self, *args, **kwargs):
         self.rpIP = socket.gethostbyname('redpitaya1.sail-laboratories.com')
         self.rpIP = '192.168.1.100'
+        self.rpIP = '10.66.100.233'
+        self.rpIP = '10.42.0.249'
         self.localIP = getLocalInterfaceIp(self.rpIP)
 
         self.arduinoport = '/dev/ttyUSB0'
@@ -30,7 +32,7 @@ class erblconfig:
 
         self.useExtPID = 0
         if self.useExtPID:
-            self.MESetPointStart = 2.8  # Temp
+            self.MESetPointStart = 3  # Temp
             self.kp = 3
             self.Ti = 0
             self.Td = 0

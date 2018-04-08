@@ -75,8 +75,8 @@ class PID(erlBase):
         self.prev_err = error
         self.prev_input = input  # save t-1 error
 
-        self.logger.debug(" TfC {},dP {}, dI {}, dD {}, Co {} : Output {}".format(self.TransferCount,
-             self.Cp, self.Ci, self.Cd, self.Co, self.output))
+        # self.logger.debug(" TfC {},dP {}, dI {}, dD {}, Co {} : Output {}".format(self.TransferCount,
+        #      self.Cp, self.Ci, self.Cd, self.Co, self.output))
         return self.output
 
     def setKpid(self, kp, Ti, Td):

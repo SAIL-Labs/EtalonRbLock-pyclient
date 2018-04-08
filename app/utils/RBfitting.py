@@ -17,7 +17,7 @@ from scipy import optimize
 from scipy.signal import savgol_filter
 import peakutils
 from peakutils.plot import plot as pplot
-from matplotlib import pyplot as plt
+#from matplotlib import pyplot as plt
 eps = np.finfo(float).eps
 
 from . import peakdetect
