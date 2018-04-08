@@ -6,8 +6,9 @@ import numpy as np
 class erblconfig:
 
     def __init__(self, *args, **kwargs):
-        self.rpIP = socket.gethostbyname('redpitaya1.sail-laboratories.com')
-        self.rpIP = '192.168.1.100'
+        #self.rpIP = socket.gethostbyname('redpitaya1.sail-laboratories.com')
+        #self.rpIP = '192.168.1.100'
+        self.rpIP = socket.gethostbyname('localhost')
         self.localIP = getLocalInterfaceIp(self.rpIP)
 
         self.arduinoport = '/dev/ttyUSB0'
