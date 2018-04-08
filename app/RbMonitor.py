@@ -13,6 +13,7 @@ import sys
 import time
 import datetime
 #from collections import deque
+#import ipdb
 
 import numpy as np
 import scipy.io
@@ -76,6 +77,10 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
         time.sleep(1)
         self.ur.receiveDACData()
         self.ur.recieveTrigerTimeAndTemp()
+
+        self.firsttrigtime=np.asarray(self.ur.timetrigger,dtype=np.float64) #self.ur.timetrigger
+
+        print("First Trig Time: {}".format(self.firsttrigtime))
 
         self.startbutton.clicked.connect(self.startDataReceiverThread)
         self.stopbutton.clicked.connect(self.stopUdpReceiverThread)
@@ -167,6 +172,7 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
         self.pressure.clear()
         self.humidity.clear()
 
+
         self.updatePIDparameters(0)
 
     def closeEvent(self, event):
@@ -245,6 +251,8 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
         self.externaltemp.append(tempexternal)
         self.pressure.append(pressure)
         self.humidity.append(humidity)
+        self.trigtimescontrol.append(trigtime)
+        self.controlvalues.append(self.doubleSpinBox_mesetpoint.value())
 
         QtWidgets.QApplication.processEvents()
 
@@ -258,15 +266,15 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
                 if len(self.trigtimes) > 1:
                     self.EnvironmentTempPlot.setData(y=self.externaltemp.data[-self.spinBox_plotwindowsize.value():],
                                                      x=(self.trigtimes.data[-self.spinBox_plotwindowsize.value():] -
-                                                        self.trigtimes.data[0]) / 1000)
+                                                        self.firsttrigtime[0]) / 1000)
 
                     self.EnvironmentPressurePlot.setData(y=self.pressure.data[-self.spinBox_plotwindowsize.value():],
                                                              x=(self.trigtimes.data[-self.spinBox_plotwindowsize.value():] -
-                                                                self.trigtimes.data[0]) / 1000)
+                                                                self.firsttrigtime[0]) / 1000)
 
                     self.EnvironmentHumidityPlot.setData(y=self.humidity.data[-self.spinBox_plotwindowsize.value():],
                                                              x=(self.trigtimes.data[-self.spinBox_plotwindowsize.value():] -
-                                                                self.trigtimes.data[0]) / 1000)
+                                                                self.firsttrigtime[0]) / 1000)
 
             elif self.tabWidget_display.currentIndex() is 0:
                 # t = time.time()
@@ -276,7 +284,7 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
                 if len(self.trigtimes) > 1:
                     self.plot_temp.setData(y=self.temps.data[-self.spinBox_plotwindowsize.value():],
                                            x=(self.trigtimes.data[-self.spinBox_plotwindowsize.value():] -
-                                              self.trigtimes.data[0]) / 1000)
+                                              self.firsttrigtime[0]) / 1000)
 
                 if len(self.trigtimes) > 1:
                     self.lcdNumber_dateRate.display(1000 / np.mean(np.diff(self.trigtimes.data[-100:])))
@@ -320,11 +328,9 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
             pass
 
         if len(self.trigtimes) > 1:
-            self.trigtimescontrol.append(trigtime)
-            self.controlvalues.append(self.doubleSpinBox_mesetpoint.value())
             self.plot_control.setData(y=self.controlvalues.data[-self.spinBox_plotwindowsize.value():],
                                       x=(self.trigtimescontrol.data[-self.spinBox_plotwindowsize.value():]
-                                         - self.trigtimes.data[0]) / 1000)
+                                         - self.firsttrigtime[0]) / 1000)
 
     # noinspection PyUnusedLocal
     def updatePIDparameters(self, new_value):
@@ -407,7 +413,7 @@ class RbMonitorProgram(QtWidgets.QMainWindow, Ui_RbMoniter, erlBase):
                 if len(self.trigtimesfitted) > 5:
                     plotimefitted = self.trigtimesfitted.data / 1000
                     # plotimefitted -= plotimefitted[0]
-                    plotimefitted -= self.trigtimes.data[0] / 1000
+                    plotimefitted -= self.firsttrigtime[0] / 1000
 
                     # rbplotdata = savgol_filter(np.mean(np.asarray(self.rbcentres), axis=1),
                     #                         self.spinBox_smoothingWindow.value(), 3)
