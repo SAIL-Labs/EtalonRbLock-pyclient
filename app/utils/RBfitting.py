@@ -10,9 +10,9 @@ import sys
 import time
 
 import numpy as np
-from numba import jit
+#from numba import jit
 from scipy.constants import c
-from scipy.optimize import leastsq,least_squares
+from scipy.optimize import leastsq, least_squares
 from scipy import optimize
 from scipy.signal import savgol_filter
 import peakutils
@@ -24,8 +24,8 @@ from . import peakdetect
 from ..comms.TCPIPreceiver import TCPIPreceiver
 from .. import erlBase
 
-erlb=erlBase()
-decimation=erlb.config.decimation
+erlb = erlBase()
+decimation = erlb.config.decimation
 
 # from remoteexecutor import remoteexecutor
 
@@ -33,6 +33,7 @@ SHOULDPLOT_RB = 0
 SHOULDPLOT_etalon = 0
 pRbstart = [0.1, 0.1, 0, 135, 10000, -1000]
 #from matplotlib import pyplot as plt
+
 
 def nm2ms(wavelengthshift, lam0=780.2):
     """ Converts a wavelength (nm) difference to velocity (m/s)
@@ -43,7 +44,7 @@ def nm2ms(wavelengthshift, lam0=780.2):
     """
 
     ms = (c * wavelengthshift * (2 * lam0 + wavelengthshift)) \
-         / (2 * lam0 ** 2 + 2 * lam0 * wavelengthshift + wavelengthshift ** 2)
+        / (2 * lam0 ** 2 + 2 * lam0 * wavelengthshift + wavelengthshift ** 2)
     return ms
 
 
@@ -62,7 +63,7 @@ def fitwavelengthscale(centers):
     return p[0]
 
 
-@jit(cache=True, nopython=True)
+#@jit(cache=True, nopython=True)
 def lorentzian(x, p):
     """
 
@@ -76,7 +77,7 @@ def lorentzian(x, p):
     return y
 
 
-@jit(cache=True, nopython=True)
+#@jit(cache=True, nopython=True)
 def square(x):
     """
 
@@ -86,7 +87,7 @@ def square(x):
     return x ** 2
 
 
-@jit(cache=True, nopython=True)
+#@jit(cache=True, nopython=True)
 def LorenPart(x, ab, c, f):
     """
 
@@ -100,7 +101,7 @@ def LorenPart(x, ab, c, f):
     return y
 
 
-@jit(cache=True, nopython=True)
+#@jit(cache=True, nopython=True)
 def AsymLorentzian(xdata, p):
     """
 
@@ -131,7 +132,7 @@ def AsymLorentzian(xdata, p):
     return y
 
 
-@jit(cache=True, nopython=True)
+#@jit(cache=True, nopython=True)
 def residualsEtalon(p, y, x):
     """
 
@@ -145,7 +146,7 @@ def residualsEtalon(p, y, x):
     return err
 
 
-@jit(cache=True, nopython=True)
+#@jit(cache=True, nopython=True)
 def residualsRb(p, y, x):
     """
 
@@ -158,7 +159,7 @@ def residualsRb(p, y, x):
     return err
 
 
-#@jit(cache=True)
+# @jit(cache=True)
 def fitEtalon(x, data, dec=1):
     """
 
@@ -168,24 +169,26 @@ def fitEtalon(x, data, dec=1):
     :return:
     """
     centrestart = data.argmax()
-    if centrestart==0:
+    if centrestart == 0:
         raise RuntimeError
     #data = savgol_filter(data, 1001, 3)
-    data=data/data.max()
-    p = np.array([1.5, 1.5, centrestart, 0.42*erlb.config.aquisitionsize, 1, 0.03])
-    #print(p)
+    data = data / data.max()
+    p = np.array([1.5, 1.5, centrestart, 0.42 *
+                  erlb.config.aquisitionsize, 1, 0.03])
+    # print(p)
     # pbest = leastsq(residualsEtalon, p, args=(data[centrestart-5000:centrestart+5000:dec], x[centrestart-5000:centrestart+5000:dec]), full_output=True)
     # best_parameters = pbest[0]
 
     #pbest = least_squares(residualsEtalon, p, args=(data[centrestart-8000:centrestart+8000:dec], x[centrestart - 8000:centrestart + 5000:dec]), method='lm')
     if 0:
-        pbest = least_squares(residualsEtalon, p, args=(data[::dec], x[::dec]), method='lm')
+        pbest = least_squares(residualsEtalon, p, args=(
+            data[::dec], x[::dec]), method='lm')
         best_parameters = pbest.x
     else:
-        best_parameters, pcov = optimize.curve_fit(AsymLorentzianAlt, x[::dec], data[::dec], p)
+        best_parameters, pcov = optimize.curve_fit(
+            AsymLorentzianAlt, x[::dec], data[::dec], p)
 
-
-    #print(best_parameters)
+    # print(best_parameters)
 
     # if SHOULDPLOT_etalon:
     #     fit = AsymLorentzian(x, best_parameters)
@@ -196,7 +199,7 @@ def fitEtalon(x, data, dec=1):
     return best_parameters[2]
 
 
-#@jit(cache=True)
+# @jit(cache=True)
 def getRbWindow(rbdata, left=1, pk_thres=0.3, pk_min_dist=50):
     """
 
@@ -204,13 +207,14 @@ def getRbWindow(rbdata, left=1, pk_thres=0.3, pk_min_dist=50):
     :param left:
     :return:
     """
-    centre = min(peakutils.indexes(savgol_filter(rbdata,501,1), thres=pk_thres, min_dist=pk_min_dist))
+    centre = min(peakutils.indexes(savgol_filter(rbdata, 501, 1),
+                                   thres=pk_thres, min_dist=pk_min_dist))
     #pplot(range(len(rbdata)),rbdata,peakutils.indexes(rbdata, thres=0.6,min_dist=1000))
     if left:
-        start = centre - 60000//decimation
+        start = centre - 60000 // decimation
     else:
-        start = np.argmax(rbdata) - 256000//decimation
-    finish = start + 120000//decimation
+        start = np.argmax(rbdata) - 256000 // decimation
+    finish = start + 120000 // decimation
     #pyplot.figure(figsize=(10, 6))
     #pplot(np.linspace(0, len(rbdata), len(rbdata)), rbdata, np.asarray([start, centre, finish], dtype=np.int))
     return int(start), int(finish)
@@ -218,31 +222,34 @@ def getRbWindow(rbdata, left=1, pk_thres=0.3, pk_min_dist=50):
     #pplot(np.linspace(0, len(rbdata), len(rbdata)), savgol_filter(rbdata,501,3), peakutils.indexes(savgol_filter(rbdata,501,3), thres=0.2,min_dist=50))
 
 
-def fitRblines(x, datab, numpeaks=3,sf_window_length=31, sf_polyorder=5):
+def fitRblines(x, datab, numpeaks=3, sf_window_length=31, sf_polyorder=5):
     locs = np.zeros(numpeaks)
 
-    datab=datab-datab.mean()
-    datab=datab/datab.min()
+    datab = datab - datab.mean()
+    datab = datab / datab.min()
 
-    start, finish = getRbWindow(datab[1:1152000//decimation])
+    start, finish = getRbWindow(datab[1:1152000 // decimation])
 
     datab = datab[start:finish:1]
     x = x[start:finish:1]
 
-    RbDeriv = savgol_filter(np.diff(savgol_filter(datab, 31, 5)),61,5)
+    RbDeriv = savgol_filter(np.diff(savgol_filter(datab, 31, 5)), 61, 5)
 
     s = np.sign(RbDeriv)
     s[s == 0] = -1  # replace zeros with -1
     zero_crossings = np.where(np.diff(s))[0]
 
-    zero_crossings=zero_crossings[s[zero_crossings-1] > s[zero_crossings+1]]
+    zero_crossings = zero_crossings[s[zero_crossings - 1]
+                                    > s[zero_crossings + 1]]
 
-    pks_sort, indexes_sort = zip(*sorted(zip(datab[zero_crossings], zero_crossings)))
+    pks_sort, indexes_sort = zip(
+        *sorted(zip(datab[zero_crossings], zero_crossings)))
     locs[0:numpeaks] = np.sort(x[np.asarray(indexes_sort)[-numpeaks:]])
 
     #locs = peakutils.interpolate(x, datab, ind=indexes_sort[-numpeaks:], width=2560 // decimation, func=loren_fit)
 
     return locs
+
 
 def fitRblinesAlt(x, datab):
     """plt.plot(x, b_bg_corr, x, datab, x, background)
@@ -255,24 +262,24 @@ def fitRblinesAlt(x, datab):
     #datab = savgol_filter(datab, 101, 3)
 
     #datab=(datab / datab.mean() - 1)
-    datab=datab-datab.mean()
-    datab=datab/datab.min()
+    datab = datab - datab.mean()
+    datab = datab / datab.min()
 
-    start, finish = getRbWindow(datab[1:1152000//decimation])
+    start, finish = getRbWindow(datab[1:1152000 // decimation])
 
     datab = datab[start:finish:1]
     x = x[start:finish:1]
 
     if 1:
         locs = np.zeros(3)
-        indexes = peakutils.indexes(-1 * savgol_filter(np.diff(savgol_filter(np.diff(savgol_filter(datab,31,5)), 31, 5)), 31, 5), thres=0.45,
-                                min_dist=20)
+        indexes = peakutils.indexes(-1 * savgol_filter(np.diff(savgol_filter(np.diff(savgol_filter(datab, 31, 5)), 31, 5)), 31, 5), thres=0.45,
+                                    min_dist=20)
         locs[0:3] = x[indexes]
         return locs
 
     # defining the 'background' part of the spectrum #
-    ind_bg_low = (x >= start) & (x < (start + 51200//decimation))
-    ind_bg_high = (x > finish - 32000//decimation) & (x <= finish)
+    ind_bg_low = (x >= start) & (x < (start + 51200 // decimation))
+    ind_bg_high = (x > finish - 32000 // decimation) & (x <= finish)
 
     x_bg = np.concatenate((x[ind_bg_low], x[ind_bg_high]))
     b_bg = np.concatenate((datab[ind_bg_low], datab[ind_bg_high]))
@@ -284,7 +291,7 @@ def fitRblinesAlt(x, datab):
     # removing fitted background #
     background = pf(x)
     b_bg_corr = datab - background
-    b_bg_corr=b_bg_corr/b_bg_corr.max()
+    b_bg_corr = b_bg_corr / b_bg_corr.max()
 
     if 0:
         plt.plot(x, b_bg_corr, x, datab, x, background)
@@ -294,10 +301,11 @@ def fitRblinesAlt(x, datab):
 
     # try:
     if 0:
-        locs=np.zeros(6)
-        pks=np.zeros(6)
+        locs = np.zeros(6)
+        pks = np.zeros(6)
 
-        indexes = peakutils.indexes(savgol_filter(datab, 101, 3), thres=0.05, min_dist=20)
+        indexes = peakutils.indexes(savgol_filter(
+            datab, 101, 3), thres=0.05, min_dist=20)
         pks_sort, indexes_sort = zip(*sorted(zip(b_bg_corr[indexes], indexes)))
         #locsfit = peakutils.interpolate(x,b_bg_corr, ind=indexes, width=2560//decimation, func=loren_fit)
         #pyplot.figure(figsize=(10, 6))
@@ -308,7 +316,8 @@ def fitRblinesAlt(x, datab):
         return locs
 
     else:
-        pkslocs = peakdetect.peakdetect(b_bg_corr, erlb.config.xsubwin, delta=100, lookahead=60)
+        pkslocs = peakdetect.peakdetect(
+            b_bg_corr, erlb.config.xsubwin, delta=100, lookahead=60)
         locs, pks = zip(*pkslocs[0])
         # pks, locs = (list(t) for t in zip(*sorted(zip(pks, locs), reverse=True)))
         sort_index = np.argsort(locs)
@@ -330,7 +339,8 @@ def fitRblinesAlt(x, datab):
         centres = np.empty(6)
         for index, loc in enumerate(locs):
             if 0:
-                win = (erlb.config.xsubwin > loc - winsize[index]) & (erlb.config.xsubwin < loc + winsize[index])
+                win = (erlb.config.xsubwin > loc -
+                       winsize[index]) & (erlb.config.xsubwin < loc + winsize[index])
 
                 # p = [100,loc,1000]  # [hwhm, peak center, intensity] # lor
                 # p = [0.1, 0.1, loc, 135, 10000, -1000]  # asymlor
@@ -338,7 +348,8 @@ def fitRblinesAlt(x, datab):
                 p[2] = loc
 
                 # optimization #
-                pbest = leastsq(residualsRb, p, args=(b_bg_corr[win], erlb.config.xsubwin[win]), full_output=1)
+                pbest = leastsq(residualsRb, p, args=(
+                    b_bg_corr[win], erlb.config.xsubwin[win]), full_output=1)
                 best_parameters = pbest[0]
                 centres[index] = best_parameters[2]
                 pRbstart = best_parameters
@@ -357,7 +368,8 @@ def fitRblinesAlt(x, datab):
 
     return centres
 
-@jit(cache=True, nopython=True)
+
+#@jit(cache=True, nopython=True)
 def gaussian(x, ampl, center, dev, d):
     '''Computes the Gaussian function.
 
@@ -378,6 +390,7 @@ def gaussian(x, ampl, center, dev, d):
         Value of the specified Gaussian at *x*
     '''
     return ampl * np.exp(-(x - float(center)) ** 2 / (2.0 * dev ** 2 + eps)) + d
+
 
 def gaussian_fit(x, y, center_only=True):
     '''Performs a Gaussian fitting of the specified data.
@@ -405,6 +418,7 @@ def gaussian_fit(x, y, center_only=True):
     else:
         return params
 
+
 def loren_fit(x, y, center_only=True):
     '''Performs a Gaussian fitting of the specified data.
 
@@ -431,7 +445,8 @@ def loren_fit(x, y, center_only=True):
     else:
         return params
 
-@jit(cache=True, nopython=True)
+
+#@jit(cache=True, nopython=True)
 def AsymLorentzianAlt(xdata, a, b, cen, wid, Amp, offset):
     """
 
